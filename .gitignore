@@ -1,0 +1,9 @@
+# Directories
+.vs/
+Build/VS2022/
+
+# Files
+*.vcxproj
+*.user
+*.filters
+*.sln
