@@ -7,7 +7,7 @@
 #include "ws2tcpip.h"
 #include <iostream>
 
-#define TARGET_IP	"127.0.0.1"
+#define TARGET_IP	"147.32.219.248"
 
 #define BUFFERS_LEN 1024
 
@@ -24,6 +24,9 @@ void InitWinsock()
 
 int main()
 {
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	SetConsoleTextAttribute(hConsole, BACKGROUND_RED | BACKGROUND_INTENSITY | BACKGROUND_BLUE | FOREGROUND_INTENSITY | FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+
 	SOCKET socketS;
 
 	InitWinsock();
@@ -44,6 +47,7 @@ int main()
 		return 1;
 	}
 
+	printf("Waiting...\n");
 	{
 		FileStreamWriter writer("Resources/brdf.png");
 
@@ -65,6 +69,8 @@ int main()
 			num_packets++;
 		}
 	}
+
+	printf("Juhuuu TRANSFER COMPLETE!!!\n");
 
 	closesocket(socketS);
 	std::cin.get();
