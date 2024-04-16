@@ -16,61 +16,66 @@
 #define LOCAL_PORT 5020
 
 #include "Psia.h"
+#include <random>
 
-class Socket
+static uint32_t CalculateCRC(uint32_t inSeed)
 {
-public:
-	Socket() = default;
-	~Socket() { closesocket(mSocket); }
+	std::default_random_engine random(inSeed);
+	std::uniform_int_distribution<uint32_t> size(0, 1);
+	return size(random);
+}
 
-	// Initialize the socket. Returns false if initialization failed, true otherwise
-	bool Initialize()
+static void PollAcknowledgements(Socket& inSocket, Packet& inPacket)
+{
+	using namespace std::chrono_literals;
+
+	AcknowledgePacket ack;
+	inSocket.RecieveAcknowledgePacket(ack);
+
+	std::cout << "  Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+
+	while (ack.Acknowledgement == Acknowledgement::BadCRC || ack.Acknowledgement == Acknowledgement::Unknown)
 	{
-		WSADATA wsaData;
-		int success = WSAStartup(MAKEWORD(2, 2), &wsaData);
-		if (success != 0)
-			return false;
+		std::cout << "    Sending again #" << inPacket.ID << "\n";
 
-		struct sockaddr_in local;
-		local.sin_family = AF_INET;
-		local.sin_port = htons(LOCAL_PORT);
-		local.sin_addr.s_addr = INADDR_ANY;
+		// CRC...
 
-		mSocket = socket(AF_INET, SOCK_DGRAM, 0);
-		int result = bind(mSocket, (sockaddr*)&local, sizeof(local));
-		if (result != 0)
-			return false;
+		inPacket.CRC = 1;
+		std::cout << "    CRC = " << inPacket.CRC << std::endl;
+		
+		std::this_thread::sleep_for(500ms);
 
-		return true;
+		if (ack.Acknowledgement == Acknowledgement::Unknown)
+		{
+			// Acknowledgement::Unknown means that we waited for too long and didn't receive an acknowledgement. So we send the same packet
+			// however when we look for the acknowledgement we get the one that we wait
+			inSocket.FlushAcknowledgements();
+		}
+
+		inSocket.SendPacket(inPacket);
+		inSocket.RecieveAcknowledgePacket(ack);
+
+		std::cout << "    Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+
+		// TODO: If we send the same packet like 10 times, terminate
 	}
-
-	void SendPacket(const Packet& inPacket) { sendto(mSocket, (const char*)&inPacket, sizeof(inPacket), 0, mTargetSocket, sizeof(sockaddr_in)); }
-
-	// Set the address of the target socket
-	void SetAddress(sockaddr_in* inAddress) { mTargetSocket = (sockaddr*)inAddress; }
-
-private:
-	SOCKET mSocket = 0;
-	sockaddr* mTargetSocket = nullptr;
-};
+	std::cout << "  Exited acknowledgement polling\n";
+}
 
 int main()
 {
 	// Name 'socket' is taken by a function...
-	Socket s;
-	if (!s.Initialize())
+	Socket s = Socket("Sender");
+	if (!s.Initialize(LOCAL_PORT, 3000))
 		FatalError("[Socket] Binding error!\n");
 
-	const char* file_name = "Resources/BRDF_LUT.png";
+	const char* file_name = "Resources/SpriteSheet.png";
 	{
 		FileStreamReader stream(file_name);
 		if (!stream.IsGood())
 			FatalError("[FileStreamReader] Failed to open file '%s'\n", file_name);
 
 		using namespace std::chrono_literals;
-
-		// Sleep for 20ms to make sure the receiver is ready
-		std::this_thread::sleep_for(20ms);
 
 		// Set an optional pointer to a sockaddr structure that contains the address of the target socket.
 		sockaddr_in addrDest;
@@ -89,13 +94,27 @@ int main()
 		std::cout << "Size of the last packet: " << BytesToString(last_packet_size) << std::endl;
 
 		Packet packet;
-		packet.Type = PacketType::None;
+		packet.ID = 0;
 		packet.Size = MAX_PAYLOAD_SIZE;
 		for (int i = 0; i < num_packets; i++)
 		{
+			// Read data into the packet
 			stream.ReadData((char*)packet.Payload, packet.Size);
+
+			// For now... generate random crc code between 0 and 1. 0 = Bad, 1 = Good
+			packet.CRC = CalculateCRC(i);
+			
+			// Wait for the receiver to be ready
+			std::cout << "---------------------------\n";
+			std::cout << "Sending packet #" << packet.ID << std::endl;
+			std::cout << "CRC = " << packet.CRC << std::endl;
+			// std::this_thread::sleep_for(5ms);
+			std::this_thread::sleep_for(500ms);
+			s.FlushAcknowledgements();
 			s.SendPacket(packet);
-			std::this_thread::sleep_for(10ms);
+
+			PollAcknowledgements(s, packet);
+			packet.ID++;
 		}
 
 		// Send the last packet manually

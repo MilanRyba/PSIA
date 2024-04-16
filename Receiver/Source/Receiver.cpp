@@ -6,8 +6,10 @@
 #include <winsock2.h>
 #include "ws2tcpip.h"
 #include <iostream>
+#include <thread>
 
-#define TARGET_IP	"147.32.219.248"
+// #define TARGET_IP	"147.32.219.248"
+#define TARGET_IP	"127.0.0.1"
 
 #define BUFFERS_LEN 1024
 
@@ -25,53 +27,87 @@ void InitWinsock()
 int main()
 {
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-	SetConsoleTextAttribute(hConsole, BACKGROUND_RED | BACKGROUND_INTENSITY | BACKGROUND_BLUE | FOREGROUND_INTENSITY | FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
 
-	SOCKET socketS;
+	Socket s = Socket("Receiver");
+	s.Initialize(LOCAL_PORT, 5000);
 
-	InitWinsock();
+	sockaddr_in addrDest;
+	addrDest.sin_family = AF_INET;
+	addrDest.sin_port = htons(TARGET_PORT);
+	InetPton(AF_INET, _T(TARGET_IP), &addrDest.sin_addr.s_addr);
+	s.SetAddress(&addrDest);
 
-	struct sockaddr_in local;
-	struct sockaddr_in from;
+	using namespace std::chrono_literals;
 
-	int fromlen = sizeof(from);
-	local.sin_family = AF_INET;
-	local.sin_port = htons(LOCAL_PORT);
-	local.sin_addr.s_addr = INADDR_ANY;
-
-	socketS = socket(AF_INET, SOCK_DGRAM, 0);
-	if (bind(socketS, (sockaddr*)&local, sizeof(local)) != 0)
 	{
-		printf("Binding error!\n");
-		std::cin.get();
-		return 1;
-	}
-
-	printf("Waiting...\n");
-	{
-		FileStreamWriter writer("Resources/brdf.png");
+		FileStreamWriter writer("Resources/test.png");
 
 		Packet packet;
 		packet.Type = PacketType::None;
+		bool first_frame = true;
+		uint32_t next_packet_id = 0;
 		while (packet.Type != PacketType::End)
 		{
-			if (recvfrom(socketS, (char*)&packet, sizeof(packet), 0, (sockaddr*)&from, &fromlen) == SOCKET_ERROR)
+			s.RecievePacket(packet);
+			std::cout << "Received packet (ID = " << packet.ID << ")\n";
+
+			if (packet.ID != next_packet_id)
 			{
-				printf("Socket error!\n");
-				getchar();
-				return 1;
+				AcknowledgePacket ack;
+				ack.CRC = 123; // Calculate CRC
+				ack.Acknowledgement = Acknowledgement::OK;
+
+				std::cout << "  Received packet with a wrong id (should be " << next_packet_id << " is " << packet.ID << ")" << std::endl;
+				std::cout << "  Sending Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+				std::this_thread::sleep_for(500ms);
+				s.SendAcknowledgePacket(ack);
 			}
+			else
+			{
+				// Check CRC and send acknowledgement
 
-			writer.WritePacket(packet);
+				AcknowledgePacket ack;
+				ack.CRC = 123; // Calculate CRC
 
-			static uint32_t num_packets = 1;
-			printf("Recieved packet #%i\n", num_packets);
-			num_packets++;
+				if (packet.CRC == 0)
+				{
+					// CRC is wrong
+					ack.Acknowledgement = Acknowledgement::BadCRC;
+					std::cout << "  Received Bad CRC\n";
+					std::cout << "  Sending Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+				}
+				else if (packet.CRC == 1)
+				{
+					// CRC is ok, write data from packet
+					ack.Acknowledgement = Acknowledgement::OK;
+					writer.WritePacket(packet);
+					next_packet_id++;
+
+					std::cout << "  Received good CRC and wrote packet #" << packet.ID << "\n";
+					std::cout << "  Sending Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+				}
+				else
+				{
+					SetConsoleTextAttribute(hConsole, BACKGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+					std::cout << "  === WRONG CRC! " << packet.CRC << "===  \n";
+					std::cin.get();
+				}
+
+				if (first_frame)
+				{
+					first_frame = false;
+					std::this_thread::sleep_for(4000ms);
+				}
+
+				std::this_thread::sleep_for(500ms);
+				s.SendAcknowledgePacket(ack);
+			}
 		}
 	}
 
-	printf("Juhuuu TRANSFER COMPLETE!!!\n");
+	SetConsoleTextAttribute(hConsole, BACKGROUND_BLUE | FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED);
+	printf("Transmission terminated\n");
 
-	closesocket(socketS);
+	// closesocket(socketS);
 	std::cin.get();
 }

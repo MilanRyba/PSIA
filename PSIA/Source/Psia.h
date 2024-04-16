@@ -60,3 +60,4 @@ inline void FatalError [[noreturn]] (const char* inFMT, ...)
 
 #include "Packet.h"
 #include "FileStream.h"
+#include "Socket.h"
