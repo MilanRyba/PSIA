@@ -16,6 +16,8 @@
 #define LOCAL_PORT 5020
 
 #include "Psia.h"
+#include "External/CRC.h"
+
 #include <random>
 
 static uint32_t CalculateCRC(uint32_t inSeed)
@@ -33,17 +35,20 @@ static void PollAcknowledgements(Socket& inSocket, Packet& inPacket)
 	inSocket.RecieveAcknowledgePacket(ack);
 
 	std::cout << "  Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+	
+	// TODO: If crc is bad, send again
 
 	while (ack.Acknowledgement == Acknowledgement::BadCRC || ack.Acknowledgement == Acknowledgement::Unknown)
 	{
 		std::cout << "    Sending again #" << inPacket.ID << "\n";
 
 		// CRC...
-
-		inPacket.CRC = 1;
+		// 
+		// Do we need to calculate crc again
+		inPacket.CalculateCRC();
 		std::cout << "    CRC = " << inPacket.CRC << std::endl;
 		
-		std::this_thread::sleep_for(500ms);
+		std::this_thread::sleep_for(5ms);
 
 		if (ack.Acknowledgement == Acknowledgement::Unknown)
 		{
@@ -69,7 +74,7 @@ int main()
 	if (!s.Initialize(LOCAL_PORT, 3000))
 		FatalError("[Socket] Binding error!\n");
 
-	const char* file_name = "Resources/SpriteSheet.png";
+	const char* file_name = "Resources/photo3.jpg";
 	{
 		FileStreamReader stream(file_name);
 		if (!stream.IsGood())
@@ -100,16 +105,14 @@ int main()
 		{
 			// Read data into the packet
 			stream.ReadData((char*)packet.Payload, packet.Size);
+			packet.CalculateCRC();
 
-			// For now... generate random crc code between 0 and 1. 0 = Bad, 1 = Good
-			packet.CRC = CalculateCRC(i);
-			
 			// Wait for the receiver to be ready
 			std::cout << "---------------------------\n";
 			std::cout << "Sending packet #" << packet.ID << std::endl;
 			std::cout << "CRC = " << packet.CRC << std::endl;
 			// std::this_thread::sleep_for(5ms);
-			std::this_thread::sleep_for(500ms);
+			std::this_thread::sleep_for(5ms);
 			s.FlushAcknowledgements();
 			s.SendPacket(packet);
 
@@ -121,6 +124,7 @@ int main()
 		packet.Type = PacketType::End;
 		packet.Size = last_packet_size;
 		stream.ReadData((char*)packet.Payload, packet.Size);
+		packet.CalculateCRC();
 		s.SendPacket(packet);
 	}
 

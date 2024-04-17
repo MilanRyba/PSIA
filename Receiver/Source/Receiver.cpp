@@ -18,10 +18,13 @@
 
 #include "Psia.h"
 
-void InitWinsock()
+static bool VerifyCRC(const Packet& inPacket)
 {
-	WSADATA wsaData;
-	WSAStartup(MAKEWORD(2, 2), &wsaData);
+	uint32_t received_crc = inPacket.CRC;
+	uint32_t calculated_crc = CRC::Calculate(inPacket.Payload, inPacket.Size, CRC::CRC_32());
+	// CRC::Calculate((const void*)&inPacket, 211, CRC::CRC_32());
+
+	return received_crc == calculated_crc;
 }
 
 int main()
@@ -40,11 +43,11 @@ int main()
 	using namespace std::chrono_literals;
 
 	{
-		FileStreamWriter writer("Resources/test.png");
+		FileStreamWriter writer("Resources/test2.jpg");
 
 		Packet packet;
 		packet.Type = PacketType::None;
-		bool first_frame = true;
+		bool first_frame = false;
 		uint32_t next_packet_id = 0;
 		while (packet.Type != PacketType::End)
 		{
@@ -59,24 +62,18 @@ int main()
 
 				std::cout << "  Received packet with a wrong id (should be " << next_packet_id << " is " << packet.ID << ")" << std::endl;
 				std::cout << "  Sending Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
-				std::this_thread::sleep_for(500ms);
+				std::this_thread::sleep_for(5ms);
 				s.SendAcknowledgePacket(ack);
 			}
 			else
 			{
 				// Check CRC and send acknowledgement
+				bool good_crc = VerifyCRC(packet);
 
 				AcknowledgePacket ack;
 				ack.CRC = 123; // Calculate CRC
 
-				if (packet.CRC == 0)
-				{
-					// CRC is wrong
-					ack.Acknowledgement = Acknowledgement::BadCRC;
-					std::cout << "  Received Bad CRC\n";
-					std::cout << "  Sending Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
-				}
-				else if (packet.CRC == 1)
+				if (good_crc)
 				{
 					// CRC is ok, write data from packet
 					ack.Acknowledgement = Acknowledgement::OK;
@@ -88,9 +85,12 @@ int main()
 				}
 				else
 				{
+					// CRC is wrong
+					ack.Acknowledgement = Acknowledgement::BadCRC;
 					SetConsoleTextAttribute(hConsole, BACKGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
-					std::cout << "  === WRONG CRC! " << packet.CRC << "===  \n";
-					std::cin.get();
+					std::cout << "  Received Bad CRC\n";
+					std::cout << "  Sending Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+					SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
 				}
 
 				if (first_frame)
@@ -99,7 +99,7 @@ int main()
 					std::this_thread::sleep_for(4000ms);
 				}
 
-				std::this_thread::sleep_for(500ms);
+				std::this_thread::sleep_for(5ms);
 				s.SendAcknowledgePacket(ack);
 			}
 		}
