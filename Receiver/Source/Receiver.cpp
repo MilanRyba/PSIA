@@ -9,7 +9,7 @@
 #include <thread>
 
 // #define TARGET_IP	"147.32.219.248"
-#define TARGET_IP	"127.0.0.1"
+#define TARGET_IP	"10.0.0.95"
 
 #define BUFFERS_LEN 1024
 
@@ -17,6 +17,7 @@
 #define LOCAL_PORT 5021
 
 #include "Psia.h"
+#include "External/sha2.hpp"
 
 static bool VerifyCRC(const Packet& inPacket)
 {
@@ -26,13 +27,54 @@ static bool VerifyCRC(const Packet& inPacket)
 
 	return received_crc == calculated_crc;
 }
+sha2::sha256_hash HashFile(const std::string& inFileName)
+{
+	sha2::sha256_hash result;
+
+	// Open file
+	FileStreamReader reader(inFileName);
+	if (!reader.IsGood()) {
+		FatalError("[FileStreamReader] Failed to open file '%s'\n", inFileName.c_str());
+	}
+
+	// Read data from file
+	std::vector<uint8_t> data;
+	data.resize(reader.GetStreamSize());
+	reader.ReadData((char*)data.data(), data.size());
+
+	// Calculate hash
+	result = sha2::sha256(data.data(), data.size());
+
+	return result;
+}
+
+bool ReceiveHash(Socket& s, std::array<uint8_t, 64>& receivedData, sha2::sha256_hash& receivedHash)
+{
+	// Receive the last packet
+	Packet packet;
+	s.RecievePacket(packet);
+
+	// Check if the packet type is "End"
+	if (packet.Type != PacketType::End) 
+	{
+		std::cerr << "Error: Expected last packet type to be 'End', but received type " << static_cast<int>(packet.Type) << std::endl;
+		return false;
+	}
+
+	// Extract the hash from the packet at the end of the payoad
+	size_t hashOffset = packet.Size - receivedHash.size();
+	std::memcpy(receivedData.data(), packet.Payload + hashOffset, receivedData.size());
+
+	return true;
+}
+
 
 int main()
 {
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
 	Socket s = Socket("Receiver");
-	s.Initialize(LOCAL_PORT, 5000);
+	s.Initialize(LOCAL_PORT, 8000);
 
 	sockaddr_in addrDest;
 	addrDest.sin_family = AF_INET;
@@ -43,7 +85,7 @@ int main()
 	using namespace std::chrono_literals;
 
 	{
-		FileStreamWriter writer("Resources/test2.jpg");
+		FileStreamWriter writer("Resources/SpriteSheet.png");
 
 		Packet packet;
 		packet.Type = PacketType::None;
@@ -57,8 +99,8 @@ int main()
 			if (packet.ID != next_packet_id)
 			{
 				AcknowledgePacket ack;
-				ack.CRC = 123; // Calculate CRC
 				ack.Acknowledgement = Acknowledgement::OK;
+				ack.CRC = CRC::Calculate((const void*)&ack.Acknowledgement, 4, CRC::CRC_32());
 
 				std::cout << "  Received packet with a wrong id (should be " << next_packet_id << " is " << packet.ID << ")" << std::endl;
 				std::cout << "  Sending Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
@@ -71,12 +113,12 @@ int main()
 				bool good_crc = VerifyCRC(packet);
 
 				AcknowledgePacket ack;
-				ack.CRC = 123; // Calculate CRC
 
 				if (good_crc)
 				{
 					// CRC is ok, write data from packet
 					ack.Acknowledgement = Acknowledgement::OK;
+					ack.CRC = CRC::Calculate((const void*)&ack.Acknowledgement, 4, CRC::CRC_32());
 					writer.WritePacket(packet);
 					next_packet_id++;
 
@@ -87,6 +129,7 @@ int main()
 				{
 					// CRC is wrong
 					ack.Acknowledgement = Acknowledgement::BadCRC;
+					ack.CRC = CRC::Calculate((const void*)&ack.Acknowledgement, 4, CRC::CRC_32());
 					SetConsoleTextAttribute(hConsole, BACKGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
 					std::cout << "  Received Bad CRC\n";
 					std::cout << "  Sending Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
@@ -103,6 +146,29 @@ int main()
 				s.SendAcknowledgePacket(ack);
 			}
 		}
+		// Close file stream
+		writer.CloseFileManually();
+
+		// Read hash from the last packet and check it with the calculated hash
+		std::array<uint8_t, 64> receivedData;
+		sha2::sha256_hash receivedHash;
+		if (ReceiveHash(s, receivedData, receivedHash)) 
+		{
+			sha2::sha256_hash calculatedHash = HashFile("Resources/SpriteSheet.png");
+			if (calculatedHash == receivedHash) 
+			{
+				std::cout << "Hash match. Data integrity verified." << std::endl;
+			}
+			else 
+			{
+				std::cerr << "Error: Hash mismatch. Data integrity compromised." << std::endl;
+			}
+		}
+		else 
+		{
+			std::cerr << "Error: Failed to receive data and hash." << std::endl;
+		}
+
 	}
 
 	SetConsoleTextAttribute(hConsole, BACKGROUND_BLUE | FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED);

@@ -1,5 +1,6 @@
 #pragma once
 #include "External/CRC.h"
+#include <array>
 
 enum class PacketType
 {
@@ -18,6 +19,8 @@ struct Packet
 	uint32_t ID; // When ack packet goes missing
 	uint64_t Size; // The size of Payload
 	uint8_t Payload[MAX_PAYLOAD_SIZE];
+
+	std::array<uint8_t, 64> Hash; // 64 byte hash
 
 	inline void CalculateCRC() { CRC = CRC::Calculate(Payload, Size, CRC::CRC_32()); }
 };

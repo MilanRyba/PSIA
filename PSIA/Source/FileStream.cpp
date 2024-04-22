@@ -22,6 +22,14 @@ void FileStreamWriter::WritePacket(const Packet& inPacket)
 	mStream.write((const char*)inPacket.Payload, inPacket.Size);
 }
 
+void FileStreamWriter::CloseFileManually()
+{
+	if (mStream.is_open())
+	{
+		mStream.close();
+	}
+}
+
 FileStreamReader::FileStreamReader(const std::filesystem::path& inPath)
 	: mPath(inPath)
 {
@@ -52,4 +60,12 @@ uint64_t FileStreamReader::GetStreamSize()
 void FileStreamReader::ReadData(char* inDest, size_t inSize)
 {
 	mStream.read(inDest, inSize);
+}
+
+void FileStreamReader::CloseFileManually()
+{
+	if (mStream.is_open())
+	{
+		mStream.close();
+	}
 }

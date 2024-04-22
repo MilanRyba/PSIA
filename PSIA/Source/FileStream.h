@@ -16,6 +16,7 @@ public:
 	void SetStreamPosition(uint64_t inPosition) { mStream.seekp(inPosition); }
 	void WriteData(const char* inData, size_t inSize);
 	void WritePacket(const Packet& inPacket);
+	void CloseFileManually();
 
 private:
 	std::filesystem::path mPath;
@@ -35,6 +36,7 @@ public:
 	uint64_t GetStreamSize();
 
 	void ReadData(char* inDest, size_t inSize);
+	void CloseFileManually();
 
 private:
 	std::filesystem::path mPath;

@@ -8,7 +8,7 @@
 #include <thread>
 #include <iostream>
 
-#define TARGET_IP	"127.0.0.1"
+#define TARGET_IP	"10.0.0.95"
 
 #define BUFFERS_LEN 1024
 
@@ -19,12 +19,27 @@
 #include "External/CRC.h"
 
 #include <random>
+#include <External/sha2.hpp>
 
-static uint32_t CalculateCRC(uint32_t inSeed)
+sha2::sha256_hash HashFile(const std::string& inFileName)
 {
-	std::default_random_engine random(inSeed);
-	std::uniform_int_distribution<uint32_t> size(0, 1);
-	return size(random);
+	sha2::sha256_hash result;
+
+	// Open file
+	FileStreamReader reader(inFileName);
+	if (!reader.IsGood()) {
+		FatalError("[FileStreamReader] Failed to open file '%s'\n", inFileName.c_str());
+	}
+
+	// Read data from file
+	std::vector<uint8_t> data;
+	data.resize(reader.GetStreamSize());
+	reader.ReadData((char*)data.data(), data.size());
+
+	// Calculate hash
+	result = sha2::sha256(data.data(), data.size());
+
+	return result;
 }
 
 static void PollAcknowledgements(Socket& inSocket, Packet& inPacket)
@@ -74,7 +89,7 @@ int main()
 	if (!s.Initialize(LOCAL_PORT, 3000))
 		FatalError("[Socket] Binding error!\n");
 
-	const char* file_name = "Resources/photo3.jpg";
+	const char* file_name = "Resources/SpriteSheet.png";
 	{
 		FileStreamReader stream(file_name);
 		if (!stream.IsGood())
@@ -121,11 +136,15 @@ int main()
 		}
 
 		// Send the last packet manually
+		sha2::sha256_hash fileHash = HashFile(file_name);
 		packet.Type = PacketType::End;
 		packet.Size = last_packet_size;
 		stream.ReadData((char*)packet.Payload, packet.Size);
 		packet.CalculateCRC();
+		std::copy(fileHash.begin(), fileHash.end(), packet.Hash.begin());
+		s.FlushAcknowledgements();
 		s.SendPacket(packet);
+		PollAcknowledgements(s, packet);
 	}
 
 	std::cin.get();
