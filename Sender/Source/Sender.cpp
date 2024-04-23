@@ -8,7 +8,7 @@
 #include <thread>
 #include <iostream>
 
-#define TARGET_IP	"10.0.0.95"
+#define TARGET_IP	"10.4.93.20"
 
 #define BUFFERS_LEN 1024
 
@@ -89,7 +89,7 @@ int main()
 	if (!s.Initialize(LOCAL_PORT, 3000))
 		FatalError("[Socket] Binding error!\n");
 
-	const char* file_name = "Resources/SpriteSheet.png";
+	const char* file_name = "Resources/BRDF_LUT.png";
 	{
 		FileStreamReader stream(file_name);
 		if (!stream.IsGood())
@@ -136,15 +136,27 @@ int main()
 		}
 
 		// Send the last packet manually
-		sha2::sha256_hash fileHash = HashFile(file_name);
+		const std::string inFileName = "Resources/BRDF_LUT.png";
+		sha2::sha256_hash fileHash = HashFile(inFileName);
 		packet.Type = PacketType::End;
 		packet.Size = last_packet_size;
 		stream.ReadData((char*)packet.Payload, packet.Size);
 		packet.CalculateCRC();
+
+		// Copy the hash bytes into the packet
 		std::copy(fileHash.begin(), fileHash.end(), packet.Hash.begin());
+
 		s.FlushAcknowledgements();
 		s.SendPacket(packet);
 		PollAcknowledgements(s, packet);
+
+		// Print the final hash sent
+		std::cout << "Final hash sent: ";
+		for (size_t i = 0; i < fileHash.size(); ++i) {
+			printf("%02x", packet.Hash[i]); // Print only the actual hash bytes
+		}
+		std::cout << std::endl;
+
 	}
 
 	std::cin.get();

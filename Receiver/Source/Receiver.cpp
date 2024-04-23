@@ -9,7 +9,7 @@
 #include <thread>
 
 // #define TARGET_IP	"147.32.219.248"
-#define TARGET_IP	"10.0.0.95"
+#define TARGET_IP	"10.4.93.20"
 
 #define BUFFERS_LEN 1024
 
@@ -48,27 +48,6 @@ sha2::sha256_hash HashFile(const std::string& inFileName)
 	return result;
 }
 
-bool ReceiveHash(Socket& s, std::array<uint8_t, 64>& receivedData, sha2::sha256_hash& receivedHash)
-{
-	// Receive the last packet
-	Packet packet;
-	s.RecievePacket(packet);
-
-	// Check if the packet type is "End"
-	if (packet.Type != PacketType::End) 
-	{
-		std::cerr << "Error: Expected last packet type to be 'End', but received type " << static_cast<int>(packet.Type) << std::endl;
-		return false;
-	}
-
-	// Extract the hash from the packet at the end of the payoad
-	size_t hashOffset = packet.Size - receivedHash.size();
-	std::memcpy(receivedData.data(), packet.Payload + hashOffset, receivedData.size());
-
-	return true;
-}
-
-
 int main()
 {
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -85,7 +64,7 @@ int main()
 	using namespace std::chrono_literals;
 
 	{
-		FileStreamWriter writer("Resources/SpriteSheet.png");
+		FileStreamWriter writer("Resources/BRDF_LUT.png");
 
 		Packet packet;
 		packet.Type = PacketType::None;
@@ -149,26 +128,57 @@ int main()
 		// Close file stream
 		writer.CloseFileManually();
 
+		/*
 		// Read hash from the last packet and check it with the calculated hash
 		std::array<uint8_t, 64> receivedData;
 		sha2::sha256_hash receivedHash;
-		if (ReceiveHash(s, receivedData, receivedHash)) 
+		const size_t hashSize = receivedHash.size(); // Size of the hash
+		size_t hashOffset = packet.Size - hashSize; // Calculate the correct offset
+		std::memcpy(receivedHash.data(), packet.Payload + hashOffset, hashSize); // Correct hash extraction
+		*/
+
+		// Read hash from the last packet and check it with the calculated hash
+		sha2::sha256_hash receivedHash;
+		size_t hashOffset = packet.Size - receivedHash.size();
+
+		// Ensure hashOffset is valid and does not exceed packet size
+		if (hashOffset >= 0 && hashOffset + receivedHash.size() <= packet.Size)
 		{
-			sha2::sha256_hash calculatedHash = HashFile("Resources/SpriteSheet.png");
-			if (calculatedHash == receivedHash) 
+			// Extract the hash from the payload
+			std::memcpy(receivedHash.data(), packet.Payload + hashOffset, receivedHash.size());
+
+			// Calculate the hash of the received data
+			sha2::sha256_hash calculatedHash = HashFile("Resources/BRDF_LUT.png");
+
+			// Compare the received hash with the calculated hash
+			if (calculatedHash == receivedHash)
 			{
 				std::cout << "Hash match. Data integrity verified." << std::endl;
 			}
-			else 
+			else
 			{
 				std::cerr << "Error: Hash mismatch. Data integrity compromised." << std::endl;
 			}
 		}
-		else 
+		else
 		{
-			std::cerr << "Error: Failed to receive data and hash." << std::endl;
+			std::cerr << "Error: Invalid hash offset or hash size exceeds packet size." << std::endl;
 		}
 
+		// Print received hash
+		std::cout << "Received hash: ";
+		for (const auto& byte : receivedHash) {
+			printf("%02x", byte);
+		}
+		std::cout << std::endl;
+
+		// Print calculated hash
+		sha2::sha256_hash calculatedHash = HashFile("Resources/BRDF_LUT.png");
+		std::cout << "Calculated hash: ";
+		for (const auto& byte : calculatedHash) {
+			printf("%02x", byte);
+		}
+		std::cout << std::endl;
 	}
 
 	SetConsoleTextAttribute(hConsole, BACKGROUND_BLUE | FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED);
