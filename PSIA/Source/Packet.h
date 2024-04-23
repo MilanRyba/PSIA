@@ -1,6 +1,9 @@
 #pragma once
 #include "External/CRC.h"
+#include "External/sha2.hpp"
+
 #include <array>
+#include <iostream>
 
 enum class PacketType
 {
@@ -15,14 +18,19 @@ struct Packet
 {
 	PacketType Type; // What type o packet is this
 	uint32_t CRC;
+	sha2::sha256_hash Hash;
 
 	uint32_t ID; // When ack packet goes missing
 	uint64_t Size; // The size of Payload
 	uint8_t Payload[MAX_PAYLOAD_SIZE];
 
-	std::array<uint8_t, 64> Hash; // 64 byte hash
-
 	inline void CalculateCRC() { CRC = CRC::Calculate(Payload, Size, CRC::CRC_32()); }
+
+	inline bool TestCRC()
+	{
+		uint32_t calculated_crc = CRC::Calculate(Payload, Size, CRC::CRC_32());
+		return calculated_crc == CRC;
+	}
 };
 
 enum class Acknowledgement
@@ -45,8 +53,26 @@ inline const char* AcknowledgementToString(const Acknowledgement inAcknowledgeme
 	}
 }
 
-struct AcknowledgePacket
+struct AcknowledgementPacket
 {
 	Acknowledgement Acknowledgement = Acknowledgement::Unknown;
-	uint32_t CRC;
+	uint32_t CRC = UINT32_MAX;
+
+	inline void CreateOK()
+	{
+		Acknowledgement = Acknowledgement::OK;
+		CalculateCRC();
+	}
+
+	inline void CreateBad()
+	{
+		Acknowledgement = Acknowledgement::BadCRC;
+		CalculateCRC();
+	}
+
+	inline void CalculateCRC()
+	{
+		const char* ack_string = AcknowledgementToString(Acknowledgement);
+		CRC = CRC::Calculate(ack_string, sizeof(ack_string), CRC::CRC_32());
+	}
 };

@@ -7,7 +7,7 @@
 #include <string>
 
 struct Packet;
-struct AcknowledgePacket;
+struct AcknowledgementPacket;
 
 class Socket
 {
@@ -19,11 +19,11 @@ public:
 	bool Initialize(int inLocalPort, uint32_t inMillis);
 
 	void SendPacket(const Packet& inPacket);
-	void SendAcknowledgePacket(const AcknowledgePacket& inPacket);
+	void SendAcknowledgementPacket(const AcknowledgementPacket& inPacket);
 	void SendHash(const std::array<uint8_t, 64>& hashData);
 
 	void RecievePacket(Packet& outPacket);
-	void RecieveAcknowledgePacket(AcknowledgePacket& outPacket);
+	void RecieveAcknowledgementPacket(AcknowledgementPacket& outPacket);
 
 	void FlushAcknowledgements();
 

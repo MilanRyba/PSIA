@@ -37,12 +37,12 @@ void Socket::SendPacket(const Packet& inPacket)
 	}
 }
 
-void Socket::SendAcknowledgePacket(const AcknowledgePacket& inPacket)
+void Socket::SendAcknowledgementPacket(const AcknowledgementPacket& inPacket)
 {
 	int ret = sendto(mSocket, (const char*)&inPacket, sizeof(inPacket), 0, mTargetSocket, sizeof(sockaddr_in));
 	if (ret == SOCKET_ERROR)
 	{
-		printf("[%s][SendAcknowledgePacket] Socket Error\n", mName.c_str());
+		printf("[%s][SendAcknowledgementPacket] Socket Error\n", mName.c_str());
 		getchar();
 	}
 }
@@ -121,12 +121,12 @@ void Socket::RecievePacket(Packet& outPacket)
 	}
 }
 
-void Socket::RecieveAcknowledgePacket(AcknowledgePacket& outPacket)
+void Socket::RecieveAcknowledgementPacket(AcknowledgementPacket& outPacket)
 {
 	int ret = recvfrom(mSocket, (char*)&outPacket, sizeof(outPacket), 0, (sockaddr*)&mFrom, &mFromSize);
 	if (ret == SOCKET_ERROR && mEnableLogging)
 	{
-		printf("[%s][RecieveAcknowledgePacket] Socket Error\n", mName.c_str());
+		printf("[%s][RecieveAcknowledgementPacket] Socket Error\n", mName.c_str());
 		PrintErrorMessage();
 	}
 }
@@ -136,8 +136,8 @@ void Socket::FlushAcknowledgements()
 	SetTimeout(1);
 
 	mEnableLogging = false;
-	AcknowledgePacket ack;
-	RecieveAcknowledgePacket(ack);
+	AcknowledgementPacket ack;
+	RecieveAcknowledgementPacket(ack);
 	mEnableLogging = true;
 
 	SetTimeout(mMillis);

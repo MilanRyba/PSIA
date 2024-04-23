@@ -12,11 +12,13 @@ public:
 	~FileStreamWriter();
 
 	bool IsGood() const { return mStream.good(); }
+	void Close() { mStream.close(); }
+
 	uint64_t GetStreamPosition() { return mStream.tellp(); }
 	void SetStreamPosition(uint64_t inPosition) { mStream.seekp(inPosition); }
+
 	void WriteData(const char* inData, size_t inSize);
 	void WritePacket(const Packet& inPacket);
-	void CloseFileManually();
 
 private:
 	std::filesystem::path mPath;
@@ -31,12 +33,13 @@ public:
 	~FileStreamReader();
 
 	bool IsGood() const { return mStream.good(); }
+	void Close() { mStream.close(); }
+
 	uint64_t GetStreamPosition() { return mStream.tellg(); }
 	void SetStreamPosition(uint64_t inPosition) { mStream.seekg(inPosition); }
 	uint64_t GetStreamSize();
 
 	void ReadData(char* inDest, size_t inSize);
-	void CloseFileManually();
 
 private:
 	std::filesystem::path mPath;

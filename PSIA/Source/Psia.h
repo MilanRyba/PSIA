@@ -1,4 +1,15 @@
 #pragma once
+#include <vector>
+
+// Suppres warning 'unary minus operator applied to unsigned type, result still unsigned'
+__pragma(warning(push))
+__pragma(warning(disable : 4146))
+#include <External/sha2.hpp>
+__pragma(warning(pop))
+
+#include "Packet.h"
+#include "FileStream.h"
+#include "Socket.h"
 
 inline std::string StringFormat(const char* inFMT, ...)
 {
@@ -58,6 +69,19 @@ inline void FatalError [[noreturn]] (const char* inFMT, ...)
 	exit(1);
 }
 
-#include "Packet.h"
-#include "FileStream.h"
-#include "Socket.h"
+inline sha2::sha256_hash HashFile(const std::string& inFileName)
+{
+	FileStreamReader reader(inFileName);
+	if (!reader.IsGood())
+	{
+		FatalError("[FileStreamReader] Failed to open file '%s'\n", inFileName.c_str());
+	}
+
+	// Read data from file
+	std::vector<uint8_t> data;
+	data.resize(reader.GetStreamSize());
+	reader.ReadData((char*)data.data(), data.size());
+
+	// Calculate hash
+	return sha2::sha256(data.data(), data.size());
+}
