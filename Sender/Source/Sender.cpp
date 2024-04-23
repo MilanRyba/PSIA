@@ -20,7 +20,7 @@
 
 #include <random>
 
-static void PollAcknowledgements(Socket& inSocket, Packet& inPacket)
+static void sPollAcknowledgements(Socket& inSocket, Packet& inPacket)
 {
 	using namespace std::chrono_literals;
 
@@ -31,8 +31,15 @@ static void PollAcknowledgements(Socket& inSocket, Packet& inPacket)
 	
 	// TODO: If crc is bad, send again
 
+	int num_packets_sent = 0;
 	while (ack.Acknowledgement == Acknowledgement::BadCRC || ack.Acknowledgement == Acknowledgement::Unknown)
 	{
+		if (num_packets_sent > 10)
+		{
+			// If we sent the same packet more than 10 times, terminate
+			FatalError("[%s] Sent the same packet 10 times.", __FUNCTION__);
+		}
+
 		std::cout << "    Sending again #" << inPacket.ID << "\n";
 
 		// CRC...
@@ -55,7 +62,7 @@ static void PollAcknowledgements(Socket& inSocket, Packet& inPacket)
 
 		std::cout << "    Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
 
-		// TODO: If we send the same packet like 10 times, terminate
+		num_packets_sent++;
 	}
 	std::cout << "  Exited acknowledgement polling\n";
 }
@@ -110,7 +117,7 @@ int main()
 			sock.FlushAcknowledgements();
 			sock.SendPacket(packet);
 
-			PollAcknowledgements(sock, packet);
+			sPollAcknowledgements(sock, packet);
 			packet.ID++;
 		}
 
