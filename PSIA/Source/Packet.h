@@ -60,19 +60,23 @@ struct AcknowledgementPacket
 
 	inline static AcknowledgementPacket sCreateOK()
 	{
-		// AcknowledgementPacket packet(EAcknowledgement::OK, sCalculateCRC(EAcknowledgement::OK));
-		AcknowledgementPacket packet;
-		packet.Acknowledgement = EAcknowledgement::OK;
-		packet.CRC = sCalculateCRC(packet.Acknowledgement);
-		return packet;
+		// Conservative method :)
+		return AcknowledgementPacket(EAcknowledgement::OK, sCalculateCRC(EAcknowledgement::OK));
+
+		// AcknowledgementPacket packet;
+		// packet.Acknowledgement = EAcknowledgement::OK;
+		// packet.CRC = sCalculateCRC(packet.Acknowledgement);
+		// return packet;
 	}
 
 	inline static AcknowledgementPacket sCreateBad()
 	{
-		AcknowledgementPacket packet;
-		packet.Acknowledgement = EAcknowledgement::BadCRC;
-		packet.CRC = sCalculateCRC(packet.Acknowledgement);
-		return packet;
+		return AcknowledgementPacket(EAcknowledgement::BadCRC, sCalculateCRC(EAcknowledgement::BadCRC));
+
+		// AcknowledgementPacket packet;
+		// packet.Acknowledgement = EAcknowledgement::BadCRC;
+		// packet.CRC = sCalculateCRC(packet.Acknowledgement);
+		// return packet;
 	}
 
 	inline static uint32_t sCalculateCRC(EAcknowledgement inAcknowledgement)
@@ -83,7 +87,7 @@ struct AcknowledgementPacket
 
 	inline bool TestCRC()
 	{
-		// const char* ack_string = AcknowledgementToString(EAcknowledgement);
+		// const char* ack_string = AcknowledgementToString(inAcknowledgement);
 		uint32_t calculated_crc = sCalculateCRC(Acknowledgement);
 		return calculated_crc == CRC;
 	}
