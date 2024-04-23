@@ -33,7 +33,7 @@ struct Packet
 	}
 };
 
-enum class Acknowledgement
+enum class EAcknowledgement
 {
 	Unknown, // AcknowledgementPacket was lost
 	OK,
@@ -41,38 +41,50 @@ enum class Acknowledgement
 	WrongPacketID,
 };
 
-inline const char* AcknowledgementToString(const Acknowledgement inAcknowledgement)
+inline const char* AcknowledgementToString(const EAcknowledgement inAcknowledgement)
 {
 	switch (inAcknowledgement)
 	{
-	case Acknowledgement::Unknown:			return "Unknown";
-	case Acknowledgement::OK:				return "OK";
-	case Acknowledgement::BadCRC:			return "BadCRC";
-	case Acknowledgement::WrongPacketID:	return "WrongPacketID";
+	case EAcknowledgement::Unknown:			return "Unknown";
+	case EAcknowledgement::OK:				return "OK";
+	case EAcknowledgement::BadCRC:			return "BadCRC";
+	case EAcknowledgement::WrongPacketID:	return "WrongPacketID";
 	default: return "[AcknowledgementToString] Wrong enum!";
 	}
 }
 
 struct AcknowledgementPacket
 {
-	Acknowledgement Acknowledgement = Acknowledgement::Unknown;
+	EAcknowledgement Acknowledgement = EAcknowledgement::Unknown;
 	uint32_t CRC = UINT32_MAX;
 
-	inline void CreateOK()
+	inline static AcknowledgementPacket sCreateOK()
 	{
-		Acknowledgement = Acknowledgement::OK;
-		CalculateCRC();
+		// AcknowledgementPacket packet(EAcknowledgement::OK, sCalculateCRC(EAcknowledgement::OK));
+		AcknowledgementPacket packet;
+		packet.Acknowledgement = EAcknowledgement::OK;
+		packet.CRC = sCalculateCRC(packet.Acknowledgement);
+		return packet;
 	}
 
-	inline void CreateBad()
+	inline static AcknowledgementPacket sCreateBad()
 	{
-		Acknowledgement = Acknowledgement::BadCRC;
-		CalculateCRC();
+		AcknowledgementPacket packet;
+		packet.Acknowledgement = EAcknowledgement::BadCRC;
+		packet.CRC = sCalculateCRC(packet.Acknowledgement);
+		return packet;
 	}
 
-	inline void CalculateCRC()
+	inline static uint32_t sCalculateCRC(EAcknowledgement inAcknowledgement)
 	{
-		const char* ack_string = AcknowledgementToString(Acknowledgement);
-		CRC = CRC::Calculate(ack_string, sizeof(ack_string), CRC::CRC_32());
+		// const char* ack_string = AcknowledgementToString(inAcknowledgement);
+		return CRC::Calculate(&inAcknowledgement, sizeof(inAcknowledgement), CRC::CRC_32());
+	}
+
+	inline bool TestCRC()
+	{
+		// const char* ack_string = AcknowledgementToString(EAcknowledgement);
+		uint32_t calculated_crc = sCalculateCRC(Acknowledgement);
+		return calculated_crc == CRC;
 	}
 };

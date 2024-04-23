@@ -10,27 +10,7 @@ __pragma(warning(pop))
 #include "Packet.h"
 #include "FileStream.h"
 #include "Socket.h"
-
-inline std::string StringFormat(const char* inFMT, ...)
-{
-	char buffer[1024];
-
-	// A complete object type (in practice, a unique built-in type or char*)
-	// suitable for holding the information needed by the macros such as va_start
-	va_list list;
-
-	// Enables access to variadic function arguments
-	// The second parameter is the named parameter preceding the first variable parameter
-	va_start(list, inFMT);
-
-	// Converts data from 'list' to character string equivalents and writes the results to 'buffer'
-	vsnprintf(buffer, sizeof(buffer), inFMT, list);
-
-	// Ends traversal of the variadic function arguments
-	va_end(list);
-
-	return std::string(buffer);
-}
+#include "Console.h"
 
 inline std::string BytesToString(uint64_t inBytes)
 {

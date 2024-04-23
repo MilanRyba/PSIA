@@ -32,7 +32,7 @@ static bool sCompareSHAHashes(const sha2::sha256_hash& inReceivedHash, const sha
 
 int main()
 {
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	Console::sInitialize();
 
 	Socket sock = Socket("Receiver");
 	sock.Initialize(LOCAL_PORT, 8000);
@@ -55,16 +55,17 @@ int main()
 		while (packet.Type != PacketType::End)
 		{
 			sock.RecievePacket(packet);
-			std::cout << "Received packet (ID = " << packet.ID << ")\n";
+
+			PSIA_WARNING("---------------------------");
+			PSIA_INFO("Received packet (ID = %u)", packet.ID);
 
 			// Check if we received a correct packet
 			if (packet.ID != next_packet_id)
 			{
-				AcknowledgementPacket ack;
-				ack.CreateOK();
+				AcknowledgementPacket ack = AcknowledgementPacket::sCreateOK();
 
-				std::cout << "  Received packet with a wrong id (should be " << next_packet_id << " is " << packet.ID << ")" << std::endl;
-				std::cout << "  Sending Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+				PSIA_ERROR("Received packet with a wrong id (should be %u is %u", next_packet_id, packet.ID);
+				PSIA_TRACE("Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
 				std::this_thread::sleep_for(5ms);
 				sock.SendAcknowledgementPacket(ack);
 
@@ -76,25 +77,21 @@ int main()
 			if (packet.TestCRC())
 			{
 				// CRC is ok, write data from packet
-				ack.CreateOK();
+				ack = AcknowledgementPacket::sCreateOK();
 
 				writer.WritePacket(packet);
 				next_packet_id++;
 
-
-				std::cout << "  Received good CRC and wrote packet #" << packet.ID << "\n";
-				std::cout << "  Sending Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+				PSIA_INFO("Received a good CRC and wrote packet #%u", packet.ID);
+				PSIA_TRACE("Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
 			}
 			else
 			{
 				// CRC is wrong
-				ack.CreateBad();
+				ack = AcknowledgementPacket::sCreateBad();
 
-
-				SetConsoleTextAttribute(hConsole, BACKGROUND_RED | FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
-				std::cout << "  Received Bad CRC\n";
-				std::cout << "  Sending Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
-				SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED);
+				PSIA_ERROR("Received incorrect CRC");
+				PSIA_TRACE("Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
 			}
 
 			std::this_thread::sleep_for(5ms);
@@ -106,12 +103,10 @@ int main()
 		auto hash = HashFile(file_name);
 		if (sCompareSHAHashes(packet.Hash, hash))
 		{
-			std::cout << "Hashes are the same\n";
+			PSIA_INFO("Hashes are the same");
 		}
 	}
 
-	SetConsoleTextAttribute(hConsole, BACKGROUND_BLUE | FOREGROUND_INTENSITY | FOREGROUND_GREEN | FOREGROUND_RED);
-	printf("Transmission terminated\n");
-
+	PSIA_TRACE("Transmission terminated");
 	std::cin.get();
 }

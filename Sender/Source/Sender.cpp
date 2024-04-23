@@ -1,4 +1,3 @@
-// #include "stdafx.h"
 #include <SDKDDKVer.h>
 #include <tchar.h>
 
@@ -18,39 +17,41 @@
 #include "Psia.h"
 #include "External/CRC.h"
 
-#include <random>
-
 static void sPollAcknowledgements(Socket& inSocket, Packet& inPacket)
 {
+	const char* tag = "sPollAcknowledgements";
+
 	using namespace std::chrono_literals;
 
 	AcknowledgementPacket ack;
 	inSocket.RecieveAcknowledgementPacket(ack);
 
-	std::cout << "  Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+	// std::cout << "  Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+	PSIA_TRACE_TAG(tag, "Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
 	
-	// TODO: If crc is bad, send again
+	// If the CRC of AcknowledgementPacket is incorrect, 
+	// treat it the same as other errors and send the original packet again
+	if (!ack.TestCRC())
+	{
+		PSIA_WARNING_TAG(tag, "Received AcknowledgementPacket with incorrect CRC");
+		ack.Acknowledgement = EAcknowledgement::BadCRC;
+	}
 
 	int num_packets_sent = 0;
-	while (ack.Acknowledgement == Acknowledgement::BadCRC || ack.Acknowledgement == Acknowledgement::Unknown)
+	while (ack.Acknowledgement == EAcknowledgement::BadCRC || ack.Acknowledgement == EAcknowledgement::Unknown)
 	{
+		// If we sent the same packet more than 10 times, terminate
 		if (num_packets_sent > 10)
-		{
-			// If we sent the same packet more than 10 times, terminate
 			FatalError("[%s] Sent the same packet 10 times.", __FUNCTION__);
-		}
 
-		std::cout << "    Sending again #" << inPacket.ID << "\n";
+		PSIA_INFO_TAG(tag, "Sending again #%u", inPacket.ID);
 
-		// CRC...
-		// 
-		// Do we need to calculate crc again?
 		inPacket.CalculateCRC();
-		std::cout << "    CRC = " << inPacket.CRC << std::endl;
+		PSIA_TRACE_TAG(tag, "New CRC = %u", inPacket.CRC);
 		
 		std::this_thread::sleep_for(5ms);
 
-		if (ack.Acknowledgement == Acknowledgement::Unknown)
+		if (ack.Acknowledgement == EAcknowledgement::Unknown)
 		{
 			// Acknowledgement::Unknown means that we waited for too long and didn't receive an acknowledgement. So we send the same packet
 			// however when we look for the acknowledgement we get the one that we wait
@@ -60,15 +61,24 @@ static void sPollAcknowledgements(Socket& inSocket, Packet& inPacket)
 		inSocket.SendPacket(inPacket);
 		inSocket.RecieveAcknowledgementPacket(ack);
 
-		std::cout << "    Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
+		if (!ack.TestCRC())
+		{
+			PSIA_WARNING_TAG(tag, "Received AcknowledgementPacket with incorrect CRC (%s)", AcknowledgementToString(ack.Acknowledgement));
+			ack.Acknowledgement = EAcknowledgement::BadCRC;
+		}
+
+		PSIA_TRACE_TAG(tag, "Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
 
 		num_packets_sent++;
 	}
-	std::cout << "  Exited acknowledgement polling\n";
+
+	PSIA_INFO("Exited acknowledgement polling");
 }
 
 int main()
 {
+	Console::sInitialize();
+
 	// Name 'socket' is taken by a function...
 	Socket sock = Socket("Sender");
 	if (!sock.Initialize(LOCAL_PORT, 3000))
@@ -95,9 +105,9 @@ int main()
 		int num_packets = (int)size / MAX_PAYLOAD_SIZE;
 		int last_packet_size = size % MAX_PAYLOAD_SIZE;
 
-		std::cout << "Size of the payload: " << BytesToString(size) << std::endl;
-		std::cout << "Number of packets to send: " << num_packets + 1 << std::endl;
-		std::cout << "Size of the last packet: " << BytesToString(last_packet_size) << std::endl;
+		PSIA_INFO("Size of the payload: %s", BytesToString(size).c_str());
+		PSIA_INFO("Number of packets to send: %i", num_packets + 1);
+		PSIA_INFO("Size of the last packet: %s", BytesToString(last_packet_size).c_str());
 
 		Packet packet;
 		packet.ID = 0;
@@ -108,11 +118,11 @@ int main()
 			stream.ReadData((char*)packet.Payload, packet.Size);
 			packet.CalculateCRC();
 
+			PSIA_WARNING("---------------------------");
+			PSIA_INFO("Sending packet #%u", packet.ID);
+			PSIA_TRACE("CRC = %u", packet.CRC);
+
 			// Wait for the receiver to be ready
-			std::cout << "---------------------------\n";
-			std::cout << "Sending packet #" << packet.ID << std::endl;
-			std::cout << "CRC = " << packet.CRC << std::endl;
-			// std::this_thread::sleep_for(5ms);
 			std::this_thread::sleep_for(5ms);
 			sock.FlushAcknowledgements();
 			sock.SendPacket(packet);
