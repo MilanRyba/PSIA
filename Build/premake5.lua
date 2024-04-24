@@ -12,7 +12,7 @@ workspace "PSIA"
     startproject "Sender"
     language "C++"
 	cppdialect "C++20"
-    configurations { "Debug", "Release" }
+    configurations { "Debug", "Release", "Net Derper"}
     characterset "Unicode"
     system "windows"
     targetdir ("VS2022/%{prj.name}_%{cfg.buildcfg}")
@@ -30,6 +30,12 @@ workspace "PSIA"
         symbols "On"
 		optimize "On"
 
+    filter "configurations:Net Derper"
+ 	    runtime "Debug"
+	    defines { "PSIA_NET_DERPER" }
+        symbols "On"
+	    optimize "Off"
+
 	filter {}
 
     project "PSIA"
@@ -38,7 +44,6 @@ workspace "PSIA"
         -- pchsource("../Receiver/pch.cpp")
         kind "StaticLib"
         systemversion "latest"
-        -- vectorextensions "AVX2"
 
         files {
             "%{wks.location}/%{prj.name}/**.cpp",
@@ -55,7 +60,6 @@ workspace "PSIA"
         -- pchsource("../Receiver/pch.cpp")
         kind "ConsoleApp"
         systemversion "latest"
-        -- vectorextensions "AVX2"
 
         files {
             "%{wks.location}/%{prj.name}/**.cpp",
@@ -67,18 +71,10 @@ workspace "PSIA"
             "$(SolutionDir)PSIA/Source"
         }
 
-        -- filter ("files:../Silver/External/**")
-        --     flags { "NoPCH" }
-        -- filter {}
-
         links {
             "PSIA",
             "ws2_32.lib"
         }
-
-        -- libdirs {
-        --     
-        -- }
 
     project "Sender"
         location("%{wks.location}/%{prj.name}")
@@ -86,7 +82,6 @@ workspace "PSIA"
         -- pchsource("../Receiver/pch.cpp")
         kind "ConsoleApp"
         systemversion "latest"
-        -- vectorextensions "AVX2"
 
         files {
             "%{wks.location}/%{prj.name}/**.cpp",
@@ -98,15 +93,7 @@ workspace "PSIA"
             "$(SolutionDir)PSIA/Source"
         }
 
-        -- filter ("files:../Silver/External/**")
-        --     flags { "NoPCH" }
-        -- filter {}
-
         links {
             "PSIA",
             "ws2_32.lib"
         }
-
-        -- libdirs {
-        --     
-        -- }

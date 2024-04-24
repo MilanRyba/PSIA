@@ -7,12 +7,17 @@
 #include <iostream>
 #include <thread>
 
-#define TARGET_IP	"127.0.0.1"
-
-#define BUFFERS_LEN 1024
-
-#define TARGET_PORT 5020
-#define LOCAL_PORT 5021
+#if defined (PSIA_NET_DERPER)
+	#define TARGET_IP "127.0.0.1" // IP address of Sender
+	
+	#define TARGET_PORT 5021
+	#define LOCAL_PORT 5030
+#else
+	#define TARGET_IP "127.0.0.1"
+	
+	#define TARGET_PORT 5020
+	#define LOCAL_PORT 5021
+#endif
 
 #include "Psia.h"
 
@@ -171,6 +176,9 @@ int main()
 		}
 	}
 
-	PSIA_TRACE("Transmission terminated");
+	PSIA_WARNING("***************************");
+	PSIA_WARNING("* Transmission terminated *");
+	PSIA_WARNING("***************************");
+
 	std::cin.get();
 }

@@ -7,12 +7,25 @@
 #include <thread>
 #include <iostream>
 
-#define TARGET_IP	"127.0.0.1"
+// Sender is the one that runs Net Derper
 
-#define BUFFERS_LEN 1024
+// xxx0 -> Port for packets
+// xxx1 -> Port for acknowledgement packets
 
-#define TARGET_PORT 5021
-#define LOCAL_PORT 5020
+// xx2x -> From Sender/Receiver to Net Derper
+// xx3x -> From NetDerper to Sender/Receiver
+
+#if defined (PSIA_NET_DERPER)
+	#define TARGET_IP "127.0.0.1"
+
+	#define TARGET_PORT 5020
+	#define LOCAL_PORT 5031
+#else
+	#define TARGET_IP "127.0.0.1"
+
+	#define TARGET_PORT 5021
+	#define LOCAL_PORT 5020
+#endif
 
 #include "Psia.h"
 
@@ -25,7 +38,6 @@ static void sPollAcknowledgements(Socket& inSocket, Packet& inPacket)
 	AcknowledgementPacket ack;
 	inSocket.RecieveAcknowledgementPacket(ack);
 
-	// std::cout << "  Acknowledgement = " << AcknowledgementToString(ack.Acknowledgement) << std::endl;
 	PSIA_TRACE_TAG(tag, "Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
 	
 	// If the CRC of AcknowledgementPacket is incorrect, 
@@ -117,11 +129,11 @@ int main()
 			stream.ReadData((char*)packet.Payload, packet.Size);
 			packet.CalculateCRC();
 
-			uint32_t random = sRandom(i);
-			if (random % 2 == 0)
-			{
-				packet.CRC = random;
-			}
+			// uint32_t random = sRandom(i);
+			// if (random % 2 == 0)
+			// {
+			// 	packet.CRC = random;
+			// }
 
 			PSIA_WARNING("---------------------------");
 			PSIA_INFO("Sending packet #%u", packet.ID);
@@ -149,7 +161,7 @@ int main()
 		packet.Size = last_packet_size;
 		stream.ReadData((char*)packet.Payload, packet.Size);
 		packet.CalculateCRC();
-		packet.CRC = 0;
+		// packet.CRC = 0;
 
 		sock.FlushAcknowledgements();
 		sock.SendPacket(packet);

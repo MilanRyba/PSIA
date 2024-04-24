@@ -1,0 +1,20 @@
+{
+  "Data": {
+    "Connection": {
+      "SourcePort": 5020,
+      "TargetPort": 5030,
+      "TargetHostName": "127.0.0.1" // IP address of Receiver
+    },
+    "Manipulation": { "DropRate": 10, "ErrorRate": 20 },
+    "Delay": { "Mean": 100.0, "StdDev": 15.0 }
+  },
+  "Acknowledgement": {
+    "Connection": {
+      "SourcePort": 5021,
+      "TargetPort": 5031,
+      "TargetHostName": "127.0.0.1"
+    },
+    "Manipulation": { "DropRate": 11, "ErrorRate": 21 },
+    "Delay": { "Mean": 101.0, "StdDev": 16.0 }
+  }
+}
