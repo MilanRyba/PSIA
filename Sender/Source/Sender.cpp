@@ -15,7 +15,6 @@
 #define LOCAL_PORT 5020
 
 #include "Psia.h"
-#include "External/CRC.h"
 
 static void sPollAcknowledgements(Socket& inSocket, Packet& inPacket)
 {
@@ -118,6 +117,12 @@ int main()
 			stream.ReadData((char*)packet.Payload, packet.Size);
 			packet.CalculateCRC();
 
+			uint32_t random = sRandom(i);
+			if (random % 2 == 0)
+			{
+				packet.CRC = random;
+			}
+
 			PSIA_WARNING("---------------------------");
 			PSIA_INFO("Sending packet #%u", packet.ID);
 			PSIA_TRACE("CRC = %u", packet.CRC);
@@ -144,10 +149,11 @@ int main()
 		packet.Size = last_packet_size;
 		stream.ReadData((char*)packet.Payload, packet.Size);
 		packet.CalculateCRC();
+		packet.CRC = 0;
 
 		sock.FlushAcknowledgements();
 		sock.SendPacket(packet);
-		// PollAcknowledgements(s, packet);
+		sPollAcknowledgements(sock, packet);
 	}
 
 	std::cin.get();

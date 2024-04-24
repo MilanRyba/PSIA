@@ -1,6 +1,11 @@
 #pragma once
 #include "External/CRC.h"
+
+// Suppres warning 'unary minus operator applied to unsigned type, result still unsigned'
+__pragma(warning(push))
+__pragma(warning(disable : 4146))
 #include "External/sha2.hpp"
+__pragma(warning(pop))
 
 #include <array>
 #include <iostream>

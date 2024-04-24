@@ -1,11 +1,6 @@
 #pragma once
 #include <vector>
-
-// Suppres warning 'unary minus operator applied to unsigned type, result still unsigned'
-__pragma(warning(push))
-__pragma(warning(disable : 4146))
-#include <External/sha2.hpp>
-__pragma(warning(pop))
+#include <random>
 
 #include "Packet.h"
 #include "FileStream.h"
@@ -64,4 +59,11 @@ inline sha2::sha256_hash HashFile(const std::string& inFileName)
 
 	// Calculate hash
 	return sha2::sha256(data.data(), data.size());
+}
+
+inline uint32_t sRandom(uint32_t inSeed)
+{
+	std::default_random_engine random(inSeed);
+	std::uniform_int_distribution<uint32_t> size;
+	return size(random);
 }
