@@ -7,6 +7,8 @@
 #include <thread>
 #include <iostream>
 
+#undef max
+
 // Sender is the one that runs Net Derper
 
 // xxx0 -> Port for packets
@@ -31,71 +33,64 @@
 
 static void sPollAcknowledgements(Socket& inSocket, Packet& inPacket)
 {
-	const char* tag = "sPollAcknowledgements";
-
 	using namespace std::chrono_literals;
+	const char* tag = __FUNCTION__;
 
-	AcknowledgementPacket ack;
-	inSocket.RecieveAcknowledgementPacket(ack);
+	PSIA_WARNING("--- Sending packet ID = %u ------------------------", inPacket.ID);
 
-	PSIA_TRACE_TAG(tag, "Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
-	
-	// If the CRC of AcknowledgementPacket is incorrect, 
-	// treat it the same as other errors and send the original packet again
-	if (!ack.TestCRC())
+	const uint32_t num_of_polls = 20;
+	for (uint32_t i = 0; i < num_of_polls; i++)
 	{
-		PSIA_WARNING_TAG(tag, "Received AcknowledgementPacket with incorrect CRC");
-		ack.Acknowledgement = EAcknowledgement::BadCRC;
-	}
-
-	int num_packets_sent = 0;
-	while (ack.Acknowledgement == EAcknowledgement::BadCRC || ack.Acknowledgement == EAcknowledgement::Unknown)
-	{
-		// If we sent the same packet more than 10 times, terminate
-		if (num_packets_sent > 10)
-			FatalError("[%s] Sent the same packet 10 times.", __FUNCTION__);
-
-		PSIA_INFO_TAG(tag, "Sending again #%u", inPacket.ID);
-
-		inPacket.CalculateCRC();
-		PSIA_TRACE_TAG(tag, "New CRC = %u", inPacket.CRC);
-		
-		std::this_thread::sleep_for(5ms);
-
-		if (ack.Acknowledgement == EAcknowledgement::Unknown)
-		{
-			// Acknowledgement::Unknown means that we waited for too long and didn't receive an acknowledgement. So we send the same packet
-			// however when we look for the acknowledgement we get the one that we wait
-			inSocket.FlushAcknowledgements();
-		}
-
 		inSocket.SendPacket(inPacket);
+
+		AcknowledgementPacket ack;
+		inSocket.FlushAcknowledgements();
 		inSocket.RecieveAcknowledgementPacket(ack);
 
+		// TODO: MAKE SURE THAT Unknown PASSES THIS TEST (WHEN WE DONT RECEIVE ANYTHING)
 		if (!ack.TestCRC())
 		{
-			PSIA_WARNING_TAG(tag, "Received AcknowledgementPacket with incorrect CRC (%s)", AcknowledgementToString(ack.Acknowledgement));
+			// Send the packet again
+			PSIA_ERROR_TAG(tag, "  Received AcknowledgementPacket with incorrect CRC");
+			PSIA_TRACE_TAG(tag, "  Sending again #%u", inPacket.ID);
+			continue;
+
 			ack.Acknowledgement = EAcknowledgement::BadCRC;
 		}
 
-		PSIA_TRACE_TAG(tag, "Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
+		// if (ack.Acknowledgement == EAcknowledgement::Unknown)
+		// {
+		// 	// Acknowledgement::Unknown means that we waited for too long and didn't receive an acknowledgement. So we send the same packet
+		// 	// however when we look for the acknowledgement we get the one that we wait
+		// 	inSocket.FlushAcknowledgements();
+		// }
 
-		num_packets_sent++;
+		PSIA_INFO_TAG(tag, "  Received EAcknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
+
+		if (ack.Acknowledgement == EAcknowledgement::BadCRC || ack.Acknowledgement == EAcknowledgement::Unknown)
+		{
+			PSIA_TRACE_TAG(tag, "  Sending again #%u", inPacket.ID);
+			continue;
+		}
+
+		return;
 	}
 
-	PSIA_INFO("Exited acknowledgement polling");
+	PSIA_FATAL_TAG(tag, "  Sent the same packet 20 times.");
+	PSIA_TRACE("Press 'Enter' to exit");
+	std::cin.get();
+	exit(1);
 }
 
 int main()
 {
 	Console::sInitialize();
 
-	// Name 'socket' is taken by a function...
 	Socket sock = Socket("Sender");
-	if (!sock.Initialize(LOCAL_PORT, 3000))
+	if (!sock.Initialize(LOCAL_PORT, 300))
 		FatalError("[Socket] Binding error!\n");
 
-	const char* file_name = "Resources/BRDF_LUT.png";
+	const char* file_name = "Resources/photo3.jpg";
 	auto sha_hash = HashFile(file_name);
 	{
 		FileStreamReader stream(file_name);
@@ -122,28 +117,30 @@ int main()
 
 		Packet packet;
 		packet.ID = 0;
+		packet.Type = PacketType::Start;
 		packet.Size = MAX_PAYLOAD_SIZE;
+
+		std::this_thread::sleep_for(5ms);
+		sock.SendPacket(packet);
+
+		{
+			AcknowledgementPacket ack;
+
+			sock.FlushAcknowledgements(); // Not sure if necessary
+			sock.SetTimeout(std::numeric_limits<uint32_t>::max());
+			sock.RecieveAcknowledgementPacket(ack);
+			sock.SetTimeout(300);
+		}
+
+		packet.Type = PacketType::Payload;
 		for (int i = 0; i < num_packets; i++)
 		{
 			// Read data into the packet
 			stream.ReadData((char*)packet.Payload, packet.Size);
-			packet.CalculateCRC();
-
-			// uint32_t random = sRandom(i);
-			// if (random % 2 == 0)
-			// {
-			// 	packet.CRC = random;
-			// }
-
-			PSIA_WARNING("---------------------------");
-			PSIA_INFO("Sending packet #%u", packet.ID);
-			PSIA_TRACE("CRC = %u", packet.CRC);
+			packet.CRC = Packet::sCalculateCRC(packet);
 
 			// Wait for the receiver to be ready
 			std::this_thread::sleep_for(5ms);
-			sock.FlushAcknowledgements();
-			sock.SendPacket(packet);
-
 			sPollAcknowledgements(sock, packet);
 			packet.ID++;
 		}
@@ -160,8 +157,7 @@ int main()
 		packet.Type = PacketType::End;
 		packet.Size = last_packet_size;
 		stream.ReadData((char*)packet.Payload, packet.Size);
-		packet.CalculateCRC();
-		// packet.CRC = 0;
+		packet.CRC = Packet::sCalculateCRC(packet);
 
 		sock.FlushAcknowledgements();
 		sock.SendPacket(packet);

@@ -47,16 +47,6 @@ void Socket::SendAcknowledgementPacket(const AcknowledgementPacket& inPacket)
 	}
 }
 
-void Socket::SendHash(const std::array<uint8_t, 64>& hashData)
-{
-	int ret = sendto(mSocket, reinterpret_cast<const char*>(hashData.data()), 64, 0, mTargetSocket, sizeof(sockaddr_in));
-	if (ret == SOCKET_ERROR)
-	{
-		printf("[%s][SendHash] Socket Error\n", mName.c_str());
-		getchar();
-	}
-}
-
 // https://learn.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-recvfrom
 static void PrintErrorMessage()
 {

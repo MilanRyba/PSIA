@@ -20,7 +20,6 @@ public:
 
 	void SendPacket(const Packet& inPacket);
 	void SendAcknowledgementPacket(const AcknowledgementPacket& inPacket);
-	void SendHash(const std::array<uint8_t, 64>& hashData);
 
 	void RecievePacket(Packet& outPacket);
 	void RecieveAcknowledgementPacket(AcknowledgementPacket& outPacket);

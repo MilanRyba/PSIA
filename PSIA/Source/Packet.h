@@ -12,7 +12,7 @@ __pragma(warning(pop))
 
 enum class PacketType
 {
-	None = 0,
+	Payload = 0,
 	Start,
 	End, // Indicates the last packet
 };
@@ -21,20 +21,33 @@ enum class PacketType
 
 struct Packet
 {
-	PacketType Type; // What type o packet is this
-	uint32_t CRC;
-	sha2::sha256_hash Hash;
+	PacketType								Type;
+	uint32_t								CRC = std::numeric_limits<uint32_t>::max();
+	sha2::sha256_hash						Hash = { 0 };
 
-	uint32_t ID; // When ack packet goes missing
-	uint64_t Size; // The size of Payload
-	uint8_t Payload[MAX_PAYLOAD_SIZE];
+	uint32_t								ID = std::numeric_limits<uint32_t>::max();
+	uint64_t								Size = std::numeric_limits<uint64_t>::max();
+	uint8_t									Payload[MAX_PAYLOAD_SIZE];
 
-	inline void CalculateCRC() { CRC = CRC::Calculate(Payload, Size, CRC::CRC_32()); }
-
-	inline bool TestCRC()
+	// Calculates CRC from this packet
+	// Call after all other packet fields have been set
+	inline static uint32_t					sCalculateCRC(Packet& inPacket)
 	{
-		uint32_t calculated_crc = CRC::Calculate(Payload, Size, CRC::CRC_32());
-		return calculated_crc == CRC;
+		uint32_t original_crc = inPacket.CRC;
+
+		inPacket.CRC = 0;
+		uint32_t crc = CRC::Calculate(&inPacket, sizeof(Packet), CRC::CRC_32());
+
+		inPacket.CRC = original_crc;
+		return crc;
+	}
+
+	inline bool								TestCRC()
+	{
+		uint32_t received_crc = CRC;
+		uint32_t calculated_crc = sCalculateCRC(*this);
+
+		return calculated_crc == received_crc;
 	}
 };
 
@@ -60,40 +73,41 @@ inline const char* AcknowledgementToString(const EAcknowledgement inAcknowledgem
 
 struct AcknowledgementPacket
 {
-	EAcknowledgement Acknowledgement = EAcknowledgement::Unknown;
-	uint32_t CRC = UINT32_MAX;
+	EAcknowledgement						Acknowledgement = EAcknowledgement::Unknown;
+	uint32_t								CRC = std::numeric_limits<uint32_t>::max();
 
-	inline static AcknowledgementPacket sCreateOK()
+	inline static AcknowledgementPacket		sCreateOK()
 	{
-		// Conservative method :)
-		return AcknowledgementPacket(EAcknowledgement::OK, sCalculateCRC(EAcknowledgement::OK));
-
-		// AcknowledgementPacket packet;
-		// packet.Acknowledgement = EAcknowledgement::OK;
-		// packet.CRC = sCalculateCRC(packet.Acknowledgement);
-		// return packet;
+		AcknowledgementPacket ack;
+		ack.Acknowledgement = EAcknowledgement::OK;
+		ack.CRC = sCalculateCRC(ack);
+		return ack;
 	}
 
-	inline static AcknowledgementPacket sCreateBad()
+	inline static AcknowledgementPacket		sCreateBad()
 	{
-		return AcknowledgementPacket(EAcknowledgement::BadCRC, sCalculateCRC(EAcknowledgement::BadCRC));
-
-		// AcknowledgementPacket packet;
-		// packet.Acknowledgement = EAcknowledgement::BadCRC;
-		// packet.CRC = sCalculateCRC(packet.Acknowledgement);
-		// return packet;
+		AcknowledgementPacket ack;
+		ack.Acknowledgement = EAcknowledgement::BadCRC;
+		ack.CRC = sCalculateCRC(ack);
+		return ack;
 	}
 
-	inline static uint32_t sCalculateCRC(EAcknowledgement inAcknowledgement)
+	inline static uint32_t					sCalculateCRC(AcknowledgementPacket& inAcknowledgement)
 	{
-		// const char* ack_string = AcknowledgementToString(inAcknowledgement);
-		return CRC::Calculate(&inAcknowledgement, sizeof(inAcknowledgement), CRC::CRC_32());
+		uint32_t original_crc = inAcknowledgement.CRC;
+
+		inAcknowledgement.CRC = 0;
+		uint32_t crc = CRC::Calculate(&inAcknowledgement, sizeof(AcknowledgementPacket), CRC::CRC_32());
+
+		inAcknowledgement.CRC = original_crc;
+		return crc;
 	}
 
-	inline bool TestCRC()
+	inline bool								TestCRC()
 	{
-		// const char* ack_string = AcknowledgementToString(inAcknowledgement);
-		uint32_t calculated_crc = sCalculateCRC(Acknowledgement);
-		return calculated_crc == CRC;
+		uint32_t received_crc = CRC;		
+		uint32_t calculated_crc = sCalculateCRC(*this);
+
+		return calculated_crc == received_crc;
 	}
 };

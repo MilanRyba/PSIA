@@ -7,6 +7,8 @@
 #include <iostream>
 #include <thread>
 
+#undef max
+
 #if defined (PSIA_NET_DERPER)
 	#define TARGET_IP "127.0.0.1" // IP address of Sender
 	
@@ -37,23 +39,41 @@ static bool sCompareSHAHashes(const sha2::sha256_hash& inReceivedHash, const sha
 	return true;
 }
 
-static void sPollPackets(Socket& inSocket, FileStreamWriter& inWriter)
+static void sPollPackets(Socket& inSocket, Packet& inPacket, FileStreamWriter& inWriter)
 {
 	using namespace std::chrono_literals;
-	const char* tag = "sPollPackets";
+	const char* tag = __FUNCTION__;
 
-	Packet packet;
-	while (true)
+	const uint32_t num_of_polls = 20;
+	for (uint32_t i = 0; i < num_of_polls; i++)
 	{
-		inSocket.RecievePacket(packet);
+		PSIA_WARNING("--- Next packet ID = %u ---------------------------", sNextPacketID);
+
+		// TODO: Test if adding this function helps or not when delay is set at ridiculously high values
+		// inSocket.FlushPackets();
+		// inPacket.Type = PacketType::Invalid;
+		inSocket.RecievePacket(inPacket);
+
+		// Test if the CRC is correct
+		if (!inPacket.TestCRC())
+		{
+			AcknowledgementPacket ack = AcknowledgementPacket::sCreateBad();
+
+			PSIA_ERROR_TAG(tag, "  Received incorrect CRC");
+			PSIA_TRACE_TAG(tag, "  Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
+
+			std::this_thread::sleep_for(5ms);
+			inSocket.SendAcknowledgementPacket(ack);
+			continue;
+		}
 
 		// Check if we received a correct packet
-		if (packet.ID != sNextPacketID)
+		if (inPacket.ID != sNextPacketID)
 		{
 			AcknowledgementPacket ack = AcknowledgementPacket::sCreateOK();
 
-			PSIA_ERROR_TAG(tag, "Received packet with a wrong id (should be %u is %u", sNextPacketID, packet.ID);
-			PSIA_TRACE_TAG(tag, "Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
+			PSIA_WARNING_TAG(tag, "  Received packet with a wrong id (should be %u is %u)", sNextPacketID, inPacket.ID);
+			PSIA_TRACE_TAG(tag, "  Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
 
 			std::this_thread::sleep_for(5ms);
 			inSocket.SendAcknowledgementPacket(ack);
@@ -61,38 +81,25 @@ static void sPollPackets(Socket& inSocket, FileStreamWriter& inWriter)
 			continue;
 		}
 
-		// Check CRC and send acknowledgement
-		AcknowledgementPacket ack;
-		if (packet.TestCRC())
-		{
-			// CRC is ok, write data from packet
-			ack = AcknowledgementPacket::sCreateOK();
+		// CRC is ok, write data from packet
+		AcknowledgementPacket ack = AcknowledgementPacket::sCreateOK();
 
-			inWriter.WritePacket(packet);
-			sNextPacketID++;
+		inWriter.WritePacket(inPacket);
+		sNextPacketID++;
 
-			PSIA_INFO_TAG(tag, "Received a good CRC and wrote packet #%u", packet.ID);
-			PSIA_TRACE_TAG(tag, "Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
+		PSIA_INFO_TAG(tag, "  Received a good CRC and wrote packet #%u", inPacket.ID);
+		PSIA_TRACE_TAG(tag, "  Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
 
-			std::this_thread::sleep_for(5ms);
-			inSocket.SendAcknowledgementPacket(ack);
+		std::this_thread::sleep_for(5ms);
+		inSocket.SendAcknowledgementPacket(ack);
 
-			return;
-		}
-		else
-		{
-			// CRC is wrong
-			ack = AcknowledgementPacket::sCreateBad();
-
-			PSIA_ERROR_TAG(tag, "Received incorrect CRC");
-			PSIA_TRACE_TAG(tag, "Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
-
-			std::this_thread::sleep_for(5ms);
-			inSocket.SendAcknowledgementPacket(ack);
-		}
+		return;
 	}
 
-	PSIA_INFO("Exited packet polling");
+	PSIA_FATAL_TAG(tag, "  Did not receive good packet after %u attempts", num_of_polls);
+	PSIA_TRACE("Press 'Enter' to exit");
+	std::cin.get();
+	exit(1);
 }
 
 int main()
@@ -100,80 +107,48 @@ int main()
 	Console::sInitialize();
 
 	Socket sock = Socket("Receiver");
-	sock.Initialize(LOCAL_PORT, 8000);
+	sock.Initialize(LOCAL_PORT, 800);
 
-	sockaddr_in addr_dest;
-	addr_dest.sin_family = AF_INET;
-	addr_dest.sin_port = htons(TARGET_PORT);
-	InetPton(AF_INET, _T(TARGET_IP), &addr_dest.sin_addr.s_addr);
-	sock.SetAddress(&addr_dest);
+	{
+		sockaddr_in addr_dest;
+		addr_dest.sin_family = AF_INET;
+		addr_dest.sin_port = htons(TARGET_PORT);
+		InetPton(AF_INET, _T(TARGET_IP), &addr_dest.sin_addr.s_addr);
+		sock.SetAddress(&addr_dest);
+	}
 
 	using namespace std::chrono_literals;
 
-	const char* file_name = "Resources/SpriteSheet.png";
+	const char* file_name = "Resources/velebil.jpg";
 	{
 		FileStreamWriter writer(file_name);
 
+		PSIA_WARNING("********************************");
+		PSIA_WARNING("* Waiting for the first packet *");
+		PSIA_WARNING("********************************");
+
 		Packet packet;
-		packet.Type = PacketType::None;
+		packet.Type = PacketType::Payload;
+
+		sock.SetTimeout(std::numeric_limits<uint32_t>::max());
+		sock.RecievePacket(packet);
+		sock.SetTimeout(800);
+
+		// Send ack
+		AcknowledgementPacket ack;
+		ack = AcknowledgementPacket::sCreateOK();
+		sock.SendAcknowledgementPacket(ack);
+
 		while (packet.Type != PacketType::End)
-		{
-			sock.RecievePacket(packet);
-
-			PSIA_WARNING("---------------------------");
-			PSIA_INFO("Received packet (ID = %u)", packet.ID);
-
-			// Check if we received a correct packet
-			if (packet.ID != sNextPacketID)
-			{
-				AcknowledgementPacket ack = AcknowledgementPacket::sCreateOK();
-
-				PSIA_ERROR("Received packet with a wrong id (should be %u is %u", sNextPacketID, packet.ID);
-				PSIA_TRACE("Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
-				std::this_thread::sleep_for(5ms);
-				sock.SendAcknowledgementPacket(ack);
-
-				continue;
-			}
-			
-			// Check CRC and send acknowledgement
-			AcknowledgementPacket ack;
-			if (packet.TestCRC())
-			{
-				// CRC is ok, write data from packet
-				ack = AcknowledgementPacket::sCreateOK();
-
-				PSIA_INFO("Received a good CRC and wrote packet #%u", packet.ID);
-				PSIA_TRACE("Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
-
-				writer.WritePacket(packet);
-				sNextPacketID++;
-
-				std::this_thread::sleep_for(5ms);
-				sock.SendAcknowledgementPacket(ack);
-			}
-			else
-			{
-				// CRC is wrong
-				ack = AcknowledgementPacket::sCreateBad();
-
-				PSIA_ERROR("Received incorrect CRC");
-				PSIA_TRACE("Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
-
-				std::this_thread::sleep_for(5ms);
-				sock.SendAcknowledgementPacket(ack);
-
-				sPollPackets(sock, writer);
-			}
-		}
+			sPollPackets(sock, packet, writer);
 
 		writer.Close();
 
 		auto hash = HashFile(file_name);
 		if (sCompareSHAHashes(packet.Hash, hash))
-		{
-			PSIA_INFO("Hashes are the same");
-		}
+			PSIA_INFO("\n--- Hashes are the same --- :)\n");
+		else
+			PSIA_ERROR("\n--- Hashes are not the same --- :(\n");
 	}
 
 	PSIA_WARNING("***************************");
