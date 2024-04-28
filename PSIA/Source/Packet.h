@@ -12,16 +12,17 @@ __pragma(warning(pop))
 
 enum class PacketType
 {
-	Payload = 0,
+	Invalid = 0,	// Receiver will discard this packet
+	Payload,
 	Start,
-	End, // Indicates the last packet
+	End,			// Indicates the last packet
 };
 
 #define MAX_PAYLOAD_SIZE 1024
 
 struct Packet
 {
-	PacketType								Type;
+	PacketType								Type = PacketType::Invalid;
 	uint32_t								CRC = std::numeric_limits<uint32_t>::max();
 	sha2::sha256_hash						Hash = { 0 };
 
@@ -53,9 +54,10 @@ struct Packet
 
 enum class EAcknowledgement
 {
-	Unknown, // AcknowledgementPacket was lost
+	Unknown,		// AcknowledgementPacket was lost
 	OK,
 	BadCRC,
+	InvalidPacket,  // The Receiver received invalid packet, likely from timeout
 	WrongPacketID,
 };
 
@@ -66,6 +68,7 @@ inline const char* AcknowledgementToString(const EAcknowledgement inAcknowledgem
 	case EAcknowledgement::Unknown:			return "Unknown";
 	case EAcknowledgement::OK:				return "OK";
 	case EAcknowledgement::BadCRC:			return "BadCRC";
+	case EAcknowledgement::InvalidPacket:   return "InvalidPacket";
 	case EAcknowledgement::WrongPacketID:	return "WrongPacketID";
 	default: return "[AcknowledgementToString] Wrong enum!";
 	}
@@ -88,6 +91,14 @@ struct AcknowledgementPacket
 	{
 		AcknowledgementPacket ack;
 		ack.Acknowledgement = EAcknowledgement::BadCRC;
+		ack.CRC = sCalculateCRC(ack);
+		return ack;
+	}
+
+	inline static AcknowledgementPacket		sCreateInvalid()
+	{
+		AcknowledgementPacket ack;
+		ack.Acknowledgement = EAcknowledgement::InvalidPacket;
 		ack.CRC = sCalculateCRC(ack);
 		return ack;
 	}

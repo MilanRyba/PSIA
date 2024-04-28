@@ -51,8 +51,20 @@ static void sPollPackets(Socket& inSocket, Packet& inPacket, FileStreamWriter& i
 
 		// TODO: Test if adding this function helps or not when delay is set at ridiculously high values
 		// inSocket.FlushPackets();
-		// inPacket.Type = PacketType::Invalid;
+		inPacket.Type = PacketType::Invalid;
 		inSocket.RecievePacket(inPacket);
+
+		// Timeout - did not receive anything
+		if (inPacket.Type == PacketType::Invalid)
+		{
+			AcknowledgementPacket ack = AcknowledgementPacket::sCreateInvalid();
+
+			PSIA_WARNING_TAG(tag, "  The received packet is invalid");
+			PSIA_TRACE_TAG(tag, "  Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
+
+			std::this_thread::sleep_for(5ms);
+			inSocket.SendAcknowledgementPacket(ack);
+		}
 
 		// Test if the CRC is correct
 		if (!inPacket.TestCRC())
@@ -97,7 +109,6 @@ static void sPollPackets(Socket& inSocket, Packet& inPacket, FileStreamWriter& i
 	}
 
 	PSIA_FATAL_TAG(tag, "  Did not receive good packet after %u attempts", num_of_polls);
-	PSIA_TRACE("Press 'Enter' to exit");
 	std::cin.get();
 	exit(1);
 }

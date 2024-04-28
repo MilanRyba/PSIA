@@ -5,8 +5,8 @@
       "TargetPort": 5030,
       "TargetHostName": "127.0.0.1"
     },
-    "Manipulation": { "DropRate": 10, "ErrorRate": 20 },
-    "Delay": { "Mean": 30.0, "StdDev": 20.0 }
+    "Manipulation": { "DropRate": 40, "ErrorRate": 1 },
+    "Delay": { "Mean": 2.0, "StdDev": 1.0 }
   },
   "Acknowledgement": {
     "Connection": {
@@ -14,7 +14,7 @@
       "TargetPort": 5031,
       "TargetHostName": "127.0.0.1"
     },
-    "Manipulation": { "DropRate": 10, "ErrorRate": 20 },
-    "Delay": { "Mean": 30.0, "StdDev": 20.0 }
+    "Manipulation": { "DropRate": 40, "ErrorRate": 1 },
+    "Delay": { "Mean": 2.0, "StdDev": 1.0 }
   }
 }
