@@ -7,8 +7,11 @@ __pragma(warning(disable : 4146))
 #include "External/sha2.hpp"
 __pragma(warning(pop))
 
+#undef max
+
 #include <array>
 #include <iostream>
+#include <limits>
 
 enum class PacketType
 {
