@@ -1,6 +1,7 @@
 # Directories
 .vs/
-Build/VS2022/
+SelectiveRepeat/Build/VS2022/
+StopAndWait/Build/VS2022/
 
 # Files
 *.vcxproj
