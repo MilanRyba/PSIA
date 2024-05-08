@@ -1,7 +1,7 @@
 #include "FileStream.h"
 #include "Packet.h"
 
-FileStreamWriter::FileStreamWriter(const std::filesystem::path& inPath)
+FileStreamWriter::FileStreamWriter(const std::string& inPath)
 	: mPath(inPath)
 {
 	mStream = std::ofstream(inPath, std::ios::binary | std::ios::out);
@@ -22,7 +22,7 @@ void FileStreamWriter::WritePacket(const Packet& inPacket)
 	mStream.write((const char*)inPacket.Payload, inPacket.Size);
 }
 
-FileStreamReader::FileStreamReader(const std::filesystem::path& inPath)
+FileStreamReader::FileStreamReader(const std::string& inPath)
 	: mPath(inPath)
 {
 	mStream = std::ifstream(inPath, std::ios::binary | std::ios::in);

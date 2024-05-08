@@ -31,6 +31,7 @@ bool Socket::Initialize(int inLocalPort, uint32_t inMillis)
 static void PrintErrorMessage()
 {
 	int error = WSAGetLastError();
+	printf("  ");
 	switch (error)
 	{
 	case WSANOTINITIALISED:
@@ -78,6 +79,9 @@ static void PrintErrorMessage()
 	case WSAECONNRESET:
 		printf("An existing connection was forcibly closed by the remote host (WSAECONNRESET).\n");
 		break;
+	case WSAENETUNREACH:
+		printf("A socket operation was attempted to an unreachable network (WSAENETUNREACH).\n");
+		break;
 	}
 }
 
@@ -106,8 +110,8 @@ void Socket::ReceivePacket(Packet& outPacket)
 	int ret = recvfrom(mSocket, (char*)&outPacket, sizeof(outPacket), 0, (sockaddr*)&mFrom, &mFromSize);
 	if (ret == SOCKET_ERROR && mEnableLogging)
 	{
-		printf("[%s][ReceivePacket] Socket Error\n", mName.c_str());
-		PrintErrorMessage();
+		// printf("[%s][ReceivePacket] Socket Error\n", mName.c_str());
+		// PrintErrorMessage();
 	}
 }
 
