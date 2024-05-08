@@ -90,6 +90,15 @@ void Sender::Send(Socket& inSocket)
 	{
 		SendWindow(inSocket);
 
+		if (mBasePacket + WINDOW_SIZE > mNumPackets)
+			mCountdown++;
+
+		if (mCountdown >= 5)
+		{
+			PSIA_TRACE("Ok, bye homie :)");
+			break;
+		}
+
 		while (true)
 		{
 			AcknowledgementPacket ack;
@@ -125,7 +134,7 @@ void Sender::Send(Socket& inSocket)
 					mBufferedPackets.erase(mBasePacket);
 
 					mBasePacket++;
-					PSIA_TRACE_TAG(tag, "  Moved sBasePacket to %d", mBasePacket);
+					PSIA_TRACE_TAG(tag, "  Moved mBasePacket to %u", mBasePacket);
 				}
 			}
 		}

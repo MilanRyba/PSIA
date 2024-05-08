@@ -25,5 +25,5 @@ private:
 	uint32_t mNumPackets;
 	uint32_t mLastPacketSize;
 	uint32_t mBasePacket = 0;
-
+	uint32_t mCountdown = 0;
 };

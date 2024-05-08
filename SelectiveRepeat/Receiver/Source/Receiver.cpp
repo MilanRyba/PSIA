@@ -116,7 +116,7 @@ void Receiver::Receive()
 			}
 
 			mBasePacket++;
-			PSIA_TRACE_TAG(tag, "  Moved window to %d", mBasePacket);
+			PSIA_TRACE_TAG(tag, "  Moved mBasePacket to %u", mBasePacket);
 		}
 	}
 
