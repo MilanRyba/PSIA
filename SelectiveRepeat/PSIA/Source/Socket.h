@@ -21,8 +21,8 @@ public:
 	void SendPacket(const Packet& inPacket);
 	void SendAcknowledgementPacket(const AcknowledgementPacket& inPacket);
 
-	void RecievePacket(Packet& outPacket);
-	void RecieveAcknowledgementPacket(AcknowledgementPacket& outPacket);
+	void ReceivePacket(Packet& outPacket);
+	void ReceiveAcknowledgementPacket(AcknowledgementPacket& outPacket);
 
 	void FlushAcknowledgements();
 

@@ -66,6 +66,10 @@ workspace "PSIA"
             "%{wks.location}/%{prj.name}/**.h",
         }
 
+        removefiles { 
+            "SelectiveRepeatReceiver.cpp",
+        }
+
         includedirs {
             "$(SolutionDir)%{prj.name}",
             "$(SolutionDir)PSIA/Source"
@@ -86,6 +90,10 @@ workspace "PSIA"
         files {
             "%{wks.location}/%{prj.name}/**.cpp",
             "%{wks.location}/%{prj.name}/**.h",
+        }
+
+        removefiles { 
+            "SelectiveRepeatSender.cpp",
         }
 
         includedirs {

@@ -81,27 +81,31 @@ struct AcknowledgementPacket
 {
 	EAcknowledgement						Acknowledgement = EAcknowledgement::Unknown;
 	uint32_t								CRC = std::numeric_limits<uint32_t>::max();
+	uint32_t								ID = std::numeric_limits<uint32_t>::max();
 
-	inline static AcknowledgementPacket		sCreateOK()
+	inline static AcknowledgementPacket		sCreateOK(uint32_t inID)
 	{
 		AcknowledgementPacket ack;
 		ack.Acknowledgement = EAcknowledgement::OK;
+		ack.ID = inID;
 		ack.CRC = sCalculateCRC(ack);
 		return ack;
 	}
 
-	inline static AcknowledgementPacket		sCreateBad()
+	inline static AcknowledgementPacket		sCreateBad(uint32_t inID)
 	{
 		AcknowledgementPacket ack;
 		ack.Acknowledgement = EAcknowledgement::BadCRC;
+		ack.ID = inID;
 		ack.CRC = sCalculateCRC(ack);
 		return ack;
 	}
 
-	inline static AcknowledgementPacket		sCreateInvalid()
+	inline static AcknowledgementPacket		sCreateInvalid(uint32_t inID)
 	{
 		AcknowledgementPacket ack;
 		ack.Acknowledgement = EAcknowledgement::InvalidPacket;
+		ack.ID = inID;
 		ack.CRC = sCalculateCRC(ack);
 		return ack;
 	}

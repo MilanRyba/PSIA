@@ -27,26 +27,6 @@ bool Socket::Initialize(int inLocalPort, uint32_t inMillis)
 	return true;
 }
 
-void Socket::SendPacket(const Packet& inPacket)
-{
-	int ret = sendto(mSocket, (const char*)&inPacket, sizeof(inPacket), 0, mTargetSocket, sizeof(sockaddr_in));
-	if (ret == SOCKET_ERROR)
-	{
-		printf("[%s][SendPacket] Socket Error\n", mName.c_str());
-		getchar();
-	}
-}
-
-void Socket::SendAcknowledgementPacket(const AcknowledgementPacket& inPacket)
-{
-	int ret = sendto(mSocket, (const char*)&inPacket, sizeof(inPacket), 0, mTargetSocket, sizeof(sockaddr_in));
-	if (ret == SOCKET_ERROR)
-	{
-		printf("[%s][SendAcknowledgementPacket] Socket Error\n", mName.c_str());
-		getchar();
-	}
-}
-
 // https://learn.microsoft.com/en-us/windows/win32/api/winsock/nf-winsock-recvfrom
 static void PrintErrorMessage()
 {
@@ -101,22 +81,42 @@ static void PrintErrorMessage()
 	}
 }
 
-void Socket::RecievePacket(Packet& outPacket)
+void Socket::SendPacket(const Packet& inPacket)
 {
-	int ret = recvfrom(mSocket, (char*)&outPacket, sizeof(outPacket), 0, (sockaddr*)&mFrom, &mFromSize);
-	if (ret == SOCKET_ERROR && mEnableLogging)
+	int ret = sendto(mSocket, (const char*)&inPacket, sizeof(inPacket), 0, mTargetSocket, sizeof(sockaddr_in));
+	if (ret == SOCKET_ERROR)
 	{
-		printf("[%s][RecievePacket] Socket Error\n", mName.c_str());
+		printf("[%s][SendPacket] Socket Error\n", mName.c_str());
 		PrintErrorMessage();
 	}
 }
 
-void Socket::RecieveAcknowledgementPacket(AcknowledgementPacket& outPacket)
+void Socket::SendAcknowledgementPacket(const AcknowledgementPacket& inPacket)
+{
+	int ret = sendto(mSocket, (const char*)&inPacket, sizeof(inPacket), 0, mTargetSocket, sizeof(sockaddr_in));
+	if (ret == SOCKET_ERROR)
+	{
+		printf("[%s][SendAcknowledgementPacket] Socket Error\n", mName.c_str());
+		PrintErrorMessage();
+	}
+}
+
+void Socket::ReceivePacket(Packet& outPacket)
 {
 	int ret = recvfrom(mSocket, (char*)&outPacket, sizeof(outPacket), 0, (sockaddr*)&mFrom, &mFromSize);
 	if (ret == SOCKET_ERROR && mEnableLogging)
 	{
-		printf("[%s][RecieveAcknowledgementPacket] Socket Error\n", mName.c_str());
+		printf("[%s][ReceivePacket] Socket Error\n", mName.c_str());
+		PrintErrorMessage();
+	}
+}
+
+void Socket::ReceiveAcknowledgementPacket(AcknowledgementPacket& outPacket)
+{
+	int ret = recvfrom(mSocket, (char*)&outPacket, sizeof(outPacket), 0, (sockaddr*)&mFrom, &mFromSize);
+	if (ret == SOCKET_ERROR && mEnableLogging)
+	{
+		printf("[%s][ReceiveAcknowledgementPacket] Socket Error\n", mName.c_str());
 		PrintErrorMessage();
 	}
 }
@@ -127,7 +127,7 @@ void Socket::FlushAcknowledgements()
 
 	mEnableLogging = false;
 	AcknowledgementPacket ack;
-	RecieveAcknowledgementPacket(ack);
+	ReceiveAcknowledgementPacket(ack);
 	mEnableLogging = true;
 
 	SetTimeout(mMillis);
