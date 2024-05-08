@@ -17,9 +17,7 @@ private:
 	Socket mSocket;
 	FileStreamWriter mStream;
 	std::map<uint32_t, Packet> mBufferedPackets;
+	BitField<1024> mReceived;
 
 	uint32_t mBasePacket = 0;
-
-	// TODO: Convert to Bitfield
-	bool mReceived[1024];
 };

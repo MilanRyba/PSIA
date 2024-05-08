@@ -18,14 +18,12 @@ private:
 	void CreatePayloadPacket(Packet& inPacket, uint32_t inID);
 	void CreateEndPacket(Packet& inPacket);
 
-	// Socket mSocket;
 	FileStreamReader mStream;
 	std::unordered_map<uint32_t, Packet> mBufferedPackets;
+	BitField<1024> mAcknowledgements;
 
 	uint32_t mNumPackets;
 	uint32_t mLastPacketSize;
 	uint32_t mBasePacket = 0;
 
-	// TODO: Convert to Bitfield
-	bool mAcknowledgements[1024];
 };

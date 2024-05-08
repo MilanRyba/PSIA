@@ -6,6 +6,7 @@
 #include "FileStream.h"
 #include "Socket.h"
 #include "Console.h"
+#include "BitField.h"
 
 inline std::string BytesToString(uint64_t inBytes)
 {
@@ -61,7 +62,7 @@ inline sha2::sha256_hash HashFile(const std::string& inFileName)
 	return sha2::sha256(data.data(), data.size());
 }
 
-inline uint32_t sRandom(uint32_t inSeed)
+inline uint32_t Random(uint32_t inSeed)
 {
 	std::default_random_engine random(inSeed);
 	std::uniform_int_distribution<uint32_t> size;

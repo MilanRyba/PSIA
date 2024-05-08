@@ -47,8 +47,6 @@ Receiver::Receiver(const char* inFileName)
 	addr_dest.sin_port = htons(TARGET_PORT);
 	InetPton(AF_INET, _T(TARGET_IP), &addr_dest.sin_addr.s_addr);
 	mSocket.SetAddress(&addr_dest);
-
-	memset(mReceived, 0, sizeof(mReceived));
 }
 
 void Receiver::Receive()
@@ -87,7 +85,7 @@ void Receiver::Receive()
 		PSIA_INFO_TAG(tag, "  Received packet #%u with good CRC", packet.ID);
 		PSIA_TRACE_TAG(tag, "  Sending Acknowledgement = %s", AcknowledgementToString(ack.Acknowledgement));
 
-		mReceived[packet.ID] = true;
+		mReceived.SetBit(packet.ID);
 		mSocket.SendAcknowledgementPacket(ack);
 
 		if (packet.ID == mBasePacket)
@@ -104,7 +102,7 @@ void Receiver::Receive()
 		else
 			mBufferedPackets[packet.ID] = packet;
 
-		while (mReceived[mBasePacket])
+		while (mReceived.GetBit(mBasePacket))
 		{
 			if (mBufferedPackets.find(mBasePacket) != mBufferedPackets.end())
 			{

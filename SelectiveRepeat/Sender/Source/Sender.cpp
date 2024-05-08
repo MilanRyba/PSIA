@@ -35,7 +35,6 @@ using namespace std::chrono_literals;
 /*
 * TODO:
 * Better logging
-* Bitfield for mAcknowledgements and mReceived
 * If Sender sends the last 5 packets multiple times and does not receive ack,
 *  Receiver probably already wrote it and left the chat, so leave as well
 */
@@ -79,8 +78,6 @@ Sender::Sender(const char* inFileName)
 	PSIA_INFO("Number of packets to send: %i", mNumPackets);
 	PSIA_INFO("Size of the last packet: %s", BytesToString(mLastPacketSize).c_str());
 
-	memset(mAcknowledgements, 0, sizeof(mAcknowledgements));
-
 	// Wait 5ms, just to be sure
 	std::this_thread::sleep_for(5ms);
 }
@@ -120,9 +117,9 @@ void Sender::Send(Socket& inSocket)
 			if (ack.ID >= mBasePacket)
 			{
 				// Mark this packet as successfully delivered
-				mAcknowledgements[ack.ID] = true;
+				mAcknowledgements.SetBit(ack.ID);
 
-				while (mAcknowledgements[mBasePacket])
+				while (mAcknowledgements.GetBit(mBasePacket))
 				{
 					// Remove packet with this ID from the map
 					mBufferedPackets.erase(mBasePacket);
@@ -157,7 +154,7 @@ void Sender::SendWindow(Socket& inSocket)
 			break;
 
 		// Check if packet with this ID has already been acknowledged
-		if (mAcknowledgements[packet_id])
+		if (mAcknowledgements.GetBit(packet_id))
 			continue;
 
 		// Find packet with this ID inside the map
